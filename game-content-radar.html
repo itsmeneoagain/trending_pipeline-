@@ -401,11 +401,10 @@
   var logger = console;
 
   // Dynamically route API and JSON cache requests.
-  // If hosted on GitHub Pages or locally via file://, route backend requests to the local Flask server.
   var API_BASE = "";
-  if (window.location.hostname !== "localhost" && 
-      window.location.hostname !== "127.0.0.1" && 
-      window.location.hostname !== "content-pipeline.neo") {
+  if (window.location.hostname === "itsmeneoagain.github.io") {
+    API_BASE = "https://trending-pipeline.onrender.com/";
+  } else if (window.location.protocol === "file:") {
     API_BASE = "http://localhost:8080/";
   }
 

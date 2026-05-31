@@ -65,19 +65,6 @@
     "discovered_at": "2026-05-31T15:58:00.000+00:00"
   },
   {
-    "title": "I AM PRISONER IN LILYVILLE 😱| Lilyville Day 92",
-    "source": "youtube_trending",
-    "heat_score": 83.2,
-    "heat": "hot",
-    "tier": 3,
-    "urgent": true,
-    "url": "https://www.youtube.com/watch?v=MSzbNvT1E7g",
-    "stats": "Views: 507,211 | Likes: 68,308 | Comments: 932",
-    "angle": "Create a Short/Reel covering the latest buzz around I AM PRISONER IN LILYVILLE 😱| Lilyville Day 92. Focus on community reactions.",
-    "why": "Trending topic on youtube_trending.",
-    "discovered_at": "2026-05-31T15:58:00.000+00:00"
-  },
-  {
     "title": "الرجل العنكبوت انقاذ باتمان Spider-Man Rescue batman vs iron man vs venom funny Game GTA 5 superhero",
     "source": "youtube_trending",
     "heat_score": 82.5,
@@ -1296,6 +1283,19 @@
     "url": "https://www.reddit.com/r/pcgaming/comments/1trzt4y/pc_game_discounts_for_the_weekend/",
     "stats": "Score: 0 | Comments: 0 | r/pcgaming",
     "angle": "Short/Reel covering PC game discounts for the weekend",
+    "why": "Trending on reddit.",
+    "discovered_at": "2026-05-31T16:00:00.000+00:00"
+  },
+  {
+    "title": "Balatro publisher Playstack only discovered it because they had a guy checking all the new releases on Steam every day: 'I saw the game the day it went up on Steam'",
+    "source": "reddit",
+    "heat_score": 41,
+    "heat": "warm",
+    "tier": 3,
+    "urgent": false,
+    "url": "https://www.reddit.com/r/pcgaming/comments/1trzyf0/balatro_publisher_playstack_only_discovered_it/",
+    "stats": "Score: 0 | Comments: 0 | r/pcgaming",
+    "angle": "Short/Reel covering Balatro publisher Playstack only discovered it because they had a guy checking all the new releases on Steam every day: 'I saw the game the day it went up on Steam'",
     "why": "Trending on reddit.",
     "discovered_at": "2026-05-31T16:00:00.000+00:00"
   }
