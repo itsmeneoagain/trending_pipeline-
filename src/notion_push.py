@@ -423,7 +423,7 @@ def sync_notion_to_local_files():
                     title = title_list[0].get("text", {}).get("content", "")
                 
                 # Extract Status
-                status_data = props.get("Status", {}).get("select", {})
+                status_data = props.get("Status", {}).get("status") or props.get("Status", {}).get("select") or {}
                 status = status_data.get("name", "Idea") if status_data else "Idea"
                 
                 # Extract Tier
@@ -520,7 +520,7 @@ def update_pipeline_item_status(page_id: str, status: str) -> bool:
     payload = {
         "properties": {
             "Status": {
-                "select": {"name": status}
+                "status": {"name": status}
             }
         }
     }
