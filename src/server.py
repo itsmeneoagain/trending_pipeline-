@@ -12,7 +12,8 @@ from src.notion_push import (
     archive_trend_by_title,
     update_pipeline_item_status,
     delete_pipeline_item,
-    sync_notion_to_local_files
+    sync_notion_to_local_files,
+    update_pipeline_item_script
 )
 
 # ── Logging setup ────────────────────────────────────────────────────
@@ -98,6 +99,7 @@ def api_add_to_pipeline():
     title = data.get("title", "").strip()
     tier_num = data.get("tier", 3)
     notes = data.get("note", "").strip()
+    script = data.get("script", "").strip()
     trend_title = data.get("trend_title", "").strip()
 
     if not title:
@@ -108,7 +110,7 @@ def api_add_to_pipeline():
     logger.info("API: Adding pipeline card: '%s' (%s)", title[:60], tier_str)
     
     # 1. Create page inside your Notion Content Pipeline database
-    success = create_pipeline_item(title=title, tier=tier_str, notes=notes)
+    success = create_pipeline_item(title=title, tier=tier_str, notes=notes, script=script)
     if not success:
         return jsonify({"error": "Failed to create Notion pipeline card"}), 500
 
@@ -156,6 +158,25 @@ def api_delete_pipeline_item():
         return jsonify({"error": "Failed to delete item from Notion"}), 500
 
     return jsonify({"status": "success", "message": "Card deleted successfully!"})
+
+
+@app.route("/api/pipeline/update-script", methods=["POST"])
+def api_update_script():
+    """Update note and script of a pipeline item in Notion by combining them."""
+    data = request.get_json() or {}
+    page_id = data.get("page_id", "").strip()
+    note = data.get("note", "").strip()
+    script = data.get("script", "").strip()
+
+    if not page_id:
+        return jsonify({"error": "page_id is required"}), 400
+
+    logger.info("API: Updating script of pipeline card %s...", page_id)
+    success = update_pipeline_item_script(page_id=page_id, note=note, script=script)
+    if not success:
+        return jsonify({"error": "Failed to update notes/script in Notion"}), 500
+
+    return jsonify({"status": "success", "message": "Script updated successfully!"})
 
 
 # ── Live Gemini Curation & Scrape Refresh ────────────────────────────

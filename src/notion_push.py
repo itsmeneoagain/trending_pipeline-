@@ -257,13 +257,14 @@ def push_trending_items(items: list[dict]) -> tuple[int, int]:
 
 # ── Create Pipeline Item ─────────────────────────────────────────────
 
-def create_pipeline_item(title: str, tier: str, notes: str = "") -> bool:
+def create_pipeline_item(title: str, tier: str, notes: str = "", script: str = "") -> bool:
     """Create a new item in the Pipeline database for content production.
 
     Args:
         title: Video title / topic.
         tier: Content tier (T1 / T2 / T3).
         notes: Optional production notes.
+        script: Optional video script text.
 
     Returns:
         True if created successfully.
@@ -271,6 +272,13 @@ def create_pipeline_item(title: str, tier: str, notes: str = "") -> bool:
     if not NOTION_API_KEY or not NOTION_PIPELINE_DB_ID:
         logger.warning("Pipeline DB not configured — skipping")
         return False
+
+    notes_clean = notes.strip()
+    script_clean = script.strip()
+    if script_clean:
+        combined = f"{notes_clean}\n\n=== SCRIPT ===\n{script_clean}"
+    else:
+        combined = notes_clean
 
     payload = {
         "parent": {"database_id": NOTION_PIPELINE_DB_ID},
@@ -282,7 +290,7 @@ def create_pipeline_item(title: str, tier: str, notes: str = "") -> bool:
                 "select": {"name": tier}
             },
             "Notes": {
-                "rich_text": [{"text": {"content": notes[:2000]}}]
+                "rich_text": [{"text": {"content": combined[:2000]}}]
             },
         },
     }
@@ -442,11 +450,18 @@ def sync_notion_to_local_files():
                 platform_names = [p.get("name") for p in platform_list if p and p.get("name")] if platform_list else ["Both"]
                 platform_str = ", ".join(platform_names) if platform_names else "Both"
                 
-                # Extract Notes
+                # Extract Notes & Script
                 notes = ""
                 notes_list = props.get("Notes", {}).get("rich_text", [])
                 if notes_list:
                     notes = notes_list[0].get("text", {}).get("content", "")
+
+                note_text = notes
+                script_text = ""
+                if "=== SCRIPT ===" in notes:
+                    parts = notes.split("=== SCRIPT ===")
+                    note_text = parts[0].strip()
+                    script_text = parts[1].strip()
 
                 pipeline_list.append({
                     "id": page.get("id"),
@@ -454,7 +469,8 @@ def sync_notion_to_local_files():
                     "tier": tier_val,
                     "platform": platform_str,
                     "status": status,
-                    "note": notes
+                    "note": note_text,
+                    "script": script_text
                 })
 
     # Write files to root folder
@@ -546,6 +562,38 @@ def delete_pipeline_item(page_id: str) -> bool:
     resp = _notion_request("patch", f"/pages/{page_id}", json=payload)
     if resp is not None:
         logger.info("Successfully archived Notion pipeline card: %s", page_id)
+        
+        # Sync state down to local files
+        sync_notion_to_local_files()
+        
+        return True
+
+    return False
+
+
+def update_pipeline_item_script(page_id: str, note: str, script: str) -> bool:
+    """Update the Notes and Script property in Notion by combining them."""
+    if not NOTION_API_KEY:
+        return False
+
+    note_clean = note.strip()
+    script_clean = script.strip()
+    if script_clean:
+        combined = f"{note_clean}\n\n=== SCRIPT ===\n{script_clean}"
+    else:
+        combined = note_clean
+
+    payload = {
+        "properties": {
+            "Notes": {
+                "rich_text": [{"text": {"content": combined[:2000]}}]
+            }
+        }
+    }
+
+    resp = _notion_request("patch", f"/pages/{page_id}", json=payload)
+    if resp is not None:
+        logger.info("Successfully updated Notion card %s notes and script", page_id)
         
         # Sync state down to local files
         sync_notion_to_local_files()

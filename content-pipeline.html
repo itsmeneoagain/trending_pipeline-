@@ -245,6 +245,7 @@
       <div class="add-form-panel">
         <input type="text" id="inTitle" placeholder="Video idea topic title...">
         <textarea id="inNote" placeholder="Angle description, script hook notes, or reference links..."></textarea>
+        <textarea id="inScript" placeholder="Write video script here (optional)..." style="height:35px; resize:none; flex:2; width:220px;"></textarea>
         <select id="inTier">
           <option value="1">T1 · Hidden Gem</option>
           <option value="2">T2 · High-Volume</option>
@@ -358,7 +359,7 @@
       if (cardUrl) {
         card.classList.add("has-url");
         card.addEventListener("click", function(e){
-          if(e.target.closest("button") || e.target.closest("a")) return;
+          if(e.target.closest("button") || e.target.closest("a") || e.target.closest("textarea") || e.target.closest(".script-box")) return;
           window.open(cardUrl, "_blank");
         });
       }
@@ -366,6 +367,8 @@
       var tier = (p.tier===2||p.tier==="2")?2:(p.tier===3||p.tier==="3")?3:1;
       var tierTxt = tier===1?"T1 · Hidden Gem":tier===2?"T2 · High-Volume":"T3 · List / News";
       
+      var scriptStatusTag = p.script ? '<span class="ptag" style="border-color:rgba(54,208,255,.35); color:var(--cyan);">📝 Scripted</span>' : '';
+
       card.innerHTML =
         '<div class="pcard-top"><h4>'+esc(p.title)+'</h4><button class="del" title="Delete">×</button></div>'+
         (p.note?'<div class="pnote">'+esc(p.note)+'</div>':'')+
@@ -373,9 +376,84 @@
           '<button class="status-btn"><span class="dot" style="background:currentColor"></span>'+p.status+'</button>'+
           '<span class="ptag tier'+tier+'">'+tierTxt+'</span>'+
           '<span class="ptag">'+esc(p.platform)+'</span>'+
+          scriptStatusTag +
+          '<button class="status-btn script-trigger" style="margin-left:auto; border-color:var(--line); color:var(--text); background:rgba(255,255,255,.015);">✍️ Script</button>'+
+        '</div>'+
+        '<div class="script-box" style="display:none; margin-top:12px; padding-top:12px; border-top:1px solid var(--line-soft);">'+
+          '<textarea class="script-edit" style="width:100%; height:140px; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px 10px; color:var(--text); font-family:inherit; font-size:12.5px; line-height:1.45; resize:vertical;" placeholder="Write your Hinglish video script here (Hook, body, outro)..."></textarea>'+
+          '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">'+
+            '<span class="word-count" style="font-size:11px; color:var(--muted);">0 words</span>'+
+            '<div style="display:flex; gap:6px;">'+
+              '<button class="btn cancel-btn" style="padding:4px 8px; font-size:11px;">Cancel</button>'+
+              '<button class="btn btn-primary save-btn" style="padding:4px 12px; font-size:11px; background:var(--lime); border-color:var(--lime); color:#0a0d14; font-weight:700;">Save</button>'+
+            '</div>'+
+          '</div>'+
         '</div>';
 
-      card.querySelector(".del").addEventListener("click", function(){
+      var scriptBox = card.querySelector(".script-box");
+      var scriptEdit = card.querySelector(".script-edit");
+      var wordCount = card.querySelector(".word-count");
+      var scriptTrigger = card.querySelector(".script-trigger");
+      
+      if (p.script) {
+        scriptEdit.value = p.script;
+        var words = p.script.trim() === "" ? 0 : p.script.trim().split(/\s+/).length;
+        wordCount.textContent = words + " words";
+        scriptTrigger.innerHTML = "✍️ Script <b style='color:var(--cyan);'>✓</b>";
+      }
+
+      scriptEdit.addEventListener("input", function(){
+        var val = this.value.trim();
+        var words = val === "" ? 0 : val.split(/\s+/).length;
+        wordCount.textContent = words + " words";
+      });
+
+      scriptTrigger.addEventListener("click", function(e){
+        e.stopPropagation();
+        var isVisible = scriptBox.style.display === "block";
+        scriptBox.style.display = isVisible ? "none" : "block";
+        if (!isVisible) {
+          scriptEdit.focus();
+        }
+      });
+
+      card.querySelector(".cancel-btn").addEventListener("click", function(e){
+        e.stopPropagation();
+        scriptBox.style.display = "none";
+        scriptEdit.value = p.script || "";
+      });
+
+      card.querySelector(".save-btn").addEventListener("click", function(e){
+        e.stopPropagation();
+        var newScript = scriptEdit.value.trim();
+        toast("Saving script to Notion...");
+        fetch(API_BASE + "api/pipeline/update-script", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            page_id: p.id,
+            note: p.note || "",
+            script: newScript
+          })
+        })
+        .then(function(res){ return res.json(); })
+        .then(function(resData){
+          if(resData.error) throw new Error(resData.error);
+          toast("Script updated ✓");
+          return loadPipeline();
+        })
+        .then(function(){ renderPipeline(); })
+        .catch(function(err){
+          console.error(err);
+          p.script = newScript;
+          savePipelineOffline();
+          renderPipeline();
+          toast("Saved offline");
+        });
+      });
+
+      card.querySelector(".del").addEventListener("click", function(e){
+        e.stopPropagation();
         toast("Deleting from Notion...");
         fetch(API_BASE + "api/pipeline/delete", {
           method: "POST",
@@ -395,7 +473,8 @@
         });
       });
 
-      card.querySelector(".status-btn").addEventListener("click", function(){
+      card.querySelector(".status-btn").addEventListener("click", function(e){
+        e.stopPropagation();
         var i = STATUSES.indexOf(p.status);
         var nextStatus = STATUSES[(i+1)%STATUSES.length];
         toast("Updating Notion...");
@@ -439,7 +518,8 @@
       body: JSON.stringify({
         title: data.title,
         tier: data.tier,
-        note: data.note || ""
+        note: data.note || "",
+        script: data.script || ""
       })
     })
     .then(function(res){ return res.json(); })
@@ -460,7 +540,8 @@
         tier: data.tier,
         platform: data.platform||"Both",
         status: "Idea",
-        note: data.note||""
+        note: data.note||"",
+        script: data.script||""
       });
       savePipelineOffline();
       renderPipeline();
@@ -475,9 +556,10 @@
       title: title,
       tier: parseInt($("inTier").value,10),
       platform: $("inPlatform").value,
-      note: $("inNote").value.trim()
+      note: $("inNote").value.trim(),
+      script: $("inScript").value.trim()
     });
-    $("inTitle").value=""; $("inNote").value="";
+    $("inTitle").value=""; $("inNote").value=""; $("inScript").value="";
   });
   $("inTitle").addEventListener("keydown", function(e){ if(e.key==="Enter") $("addBtn").click(); });
 
