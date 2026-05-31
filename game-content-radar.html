@@ -184,6 +184,8 @@
   .fchip.active.t2{background:var(--cyan);border-color:var(--cyan)}
   .fchip.active.t3{background:var(--amber);border-color:var(--amber)}
   .fchip.active.urg{background:var(--hot);border-color:var(--hot);color:#fff}
+  .fchip.active.neo{background:var(--lime);border-color:var(--lime);color:#0a0d14}
+  .tag.offlane{color:var(--faint);border-color:rgba(91,102,120,.35);background:rgba(91,102,120,.07);font-size:9.5px}
 
   /* trend cards */
   .list{padding:14px 18px 18px;display:flex;flex-direction:column;gap:11px}
@@ -393,6 +395,7 @@
         <button class="fchip t2" data-f="2">T2 · High-volume</button>
         <button class="fchip t3" data-f="3">T3 · Lists / news</button>
         <button class="fchip urg" data-f="urgent">⏱ Time-sensitive</button>
+        <button class="fchip neo" data-f="neo">✓ Neo's Lane</button>
       </div>
       <div class="list" id="trendList"></div>
     </section>
@@ -603,6 +606,7 @@
     var shown = trends.filter(function(t){
       if(activeFilter==="all") return true;
       if(activeFilter==="urgent") return !!t.urgent;
+      if(activeFilter==="neo") return !isOffLane(t.title);
       return String(t.tier)===activeFilter;
     });
     if(!shown.length){
@@ -617,6 +621,8 @@
       var tierLabel = tier===1?"T1 · Hidden gem":tier===2?"T2 · High-volume":"T3 · List / news";
       var urgentTag = t.urgent ? '<span class="tag urgent"><span class="dot" style="background:var(--hot)"></span>TIME-SENSITIVE</span>' : '';
       var displayAngle = isGenericAngle(t.angle) ? generateSmartAngle(t.title, t.source, tier) : t.angle;
+      var offLane = isOffLane(t.title);
+      var offLaneTag = offLane ? '<span class="tag offlane">⚠ off-lane</span>' : '';
       card.innerHTML =
         '<div class="tcard-top"><h3>'+esc(t.title)+'</h3></div>'+
         '<div class="tags">'+
@@ -624,6 +630,7 @@
           '<span class="tag tier"><span class="dot" style="background:var(--accent)"></span>'+tierLabel+'</span>'+
           '<span class="tag">'+satLabel(t.saturation)+'</span>'+
           urgentTag+
+          offLaneTag+
         '</div>'+
         '<div class="angle">'+esc(displayAngle)+'</div>'+
         (t.why?'<div class="why">↳ '+esc(t.why)+'</div>':'')+
@@ -1067,32 +1074,56 @@
     return false;
   }
 
+  // @NotAgainNeo's 10 proven formats — ordered by actual view performance
   function generateSmartAngle(title, source, tier) {
     var t = (title || "").toLowerCase();
     var sh = title.length > 55 ? title.slice(0,55) + "…" : title;
-
     var storyGames = ["tekken","mortal kombat","resident evil","witcher","god of war","red dead",
       "cyberpunk","final fantasy","dark souls","elden ring","zelda","halo","mass effect",
-      "batman","spider-man","max payne","street fighter","metal gear","silent hill","gta"];
-    var hasStoryGame = storyGames.some(function(g){ return t.indexOf(g) !== -1; });
+      "batman","spider-man","max payne","street fighter","metal gear","silent hill","gta",
+      "forza","ace combat","no law","black flag","assassin's creed","crimson desert"];
+    var isStoryGame = storyGames.some(function(g){ return t.indexOf(g) !== -1; });
 
-    if (/easter egg|hidden|secret|reference|cameo|saddest/i.test(t))
-      return "'Yeh kisi ne notice kiya kya?' — pop culture tie-in ya hidden detail. 'Kya tumne dekha?' hook, zero Hinglish coverage.";
-    if (hasStoryGame && /story|lore|history|part|chapter|origin/i.test(t))
-      return "'" + sh + "' ki puri kahani ek Reel mein — cinematic mystery hook. 'Yeh game itna dark kyun hai?' opener. No Hinglish coverage.";
-    if (/history|what happened|how did|why did|origin|rise of|fall of|retro|classic|nostalgia|anniversary/i.test(t))
-      return "'Yeh kab hua aur kyun?' gaming history explainer — cinematic storytelling, direct-to-camera. Pure open lane.";
-    if (/million copies|lawsuit|layoffs|shut down|acquired|controversy|apolog|drama|backlash/i.test(t))
-      return "Industry drama ka oblique angle — player impact aur Indian pricing focus. Never the obvious headline.";
-    if (tier === 1 || /indie|solo dev|my game|our game|demo release|wishlist|working on/i.test(t))
-      return "Hidden gem intro: '" + sh + "' — zero Hinglish coverage. Hook: 'Koi nahi jaanta yeh game exist karta hai — aur yeh galti hai.'";
-    if (/leaked|reportedly|confirmed|trailer|reveal|announcement|rated in/i.test(t))
-      return "Fast 30-sec breaking news Short — 'reportedly' frame, first-mover advantage. Publish before competition.";
-    if (/co-op|multiplayer|best games|top games|games like|recommend|horror games/i.test(t))
-      return "Tier 3 list — Indian context add karo: pricing, availability, PC/mobile support. 'Indian gamers ke liye best options.'";
-    if (source && source.indexOf("reddit") !== -1)
-      return "Reddit trending but zero Hinglish coverage — T1 discovery angle. 'Yeh chhupa hua gem' hook. Channel ka core lane.";
-    return "'" + sh + "' — strategy check: T1 gem, oblique T2 angle, ya developer story? 30-sec Hinglish hook draft karo.";
+    // FORMAT 1: KISI NE NOTICE KIYA? (3,123 views)
+    if (/easter egg|hidden|secret|reference|cameo|tribute|saddest|notice|kisi ne|99%/i.test(t))
+      return "KISI NE NOTICE KIYA?: 'Bhai, " + sh + " mein ek cheez hai jo developer ne khud confirm ki — aur sirf 1% log jaante hain.' Zero Hinglish coverage.";
+    // FORMAT 2: GAMER IS BEING REPLACED (2,265 views)
+    if (/replac|automat|robot| ai | job |artificial/i.test(t))
+      return "GAMER IS BEING REPLACED: 'Ye game tumhe apni hi cheez se replace karna sikhata hai.' " + sh + " ka real-world AI/job angle.";
+    // FORMAT 3: PHIR BHI DOOB GAYA (1,924 views)
+    if (/fail|flop|wishlist|negative review|shutdown|cancel|bankrupt|layoff|doob|controversy|backlash|apolog/i.test(t))
+      return "PHIR BHI DOOB GAYA: '[Budget/wishlists] tha, phir bhi doob gaya.' " + sh + " ki asli failure story — Concord/Outbound style.";
+    // FORMAT 7: 99% LOGON NE MISS KIYA — cinema tie-in (1,042 views)
+    if (/movie|film|series|netflix|web series|director|actor/i.test(t))
+      return "99% LOGON NE MISS KIYA: '[Movie/Series] mein " + sh + " ka easter egg chhupa hai jo director ne confirm kiya.' RE Movie style cinema tie-in.";
+    // FORMAT 9: Rs X NE Rs Y KO HARAYA — Indian pricing (919 views)
+    if (/price|cost|₹|rupee|expensive|cheap|budget|sale|discount|worth/i.test(t))
+      return "Rs X NE Rs Y KO HARAYA: 'Rs[price] ke " + sh + " ne Rs[AAA] waale game ko kaise haraya? India mein worth it hai?' Direct comparison.";
+    // FORMAT 6: POORA SAFAR — franchise history (1,297 views)
+    if (/history|story of|what happened|how did|why did|origin|rise of|fall of|retro|classic|nostalgia|anniversary|years ago|saal|journey|poora safar/i.test(t))
+      return "POORA SAFAR: '[X] saal. [Y] games. " + sh + " ka poora safar.' Franchise history Short — '13 saal. 6 desh.' style.";
+    // FORMAT 8: KOI BAAT KYUN NAHI KAR RAHA? — overlooked news (954 views)
+    if (/leaked|reportedly|confirmed|trailer|reveal|announcement|rated in|pre-order|open beta|playtest/i.test(t))
+      return "KOI BAAT KYUN NAHI KAR RAHA?: '" + sh + " aa raha hai / confirm hua — aur koi baat kyun nahi kar raha?' Fast first-mover Short.";
+    // FORMAT 5: HIDDEN GEM INTRO — T1 underrated/indie (1,788 views)
+    if (tier === 1 || /indie|solo dev|my game|our game|demo release|wishlist|working on|making a/i.test(t))
+      return "HIDDEN GEM INTRO: 'Ye game exist karta hai aur koi baat nahi karta. Aaj hum batate hain.' " + sh + " — Hacknet style zero-coverage discovery.";
+    // FORMAT 4: GAME EXPLAINED — franchise lore (1,201 views)
+    if (isStoryGame && /story|lore|explained|breakdown|origin|saga|journey|safar/i.test(t))
+      return "GAME EXPLAINED: 'Poori kahani 60 seconds mein.' " + sh + " — Black Flag/AC Explained style cinematic story Short.";
+    if (source && source.indexOf("reddit") !== -1 && tier === 1)
+      return "HIDDEN GEM INTRO: Reddit pe trending but zero Hinglish coverage — 'Koi nahi jaanta yeh game exist karta hai.' T1 open lane.";
+    return "'" + sh + "' — check Neo's formats: KISI NE NOTICE KIYA?, PHIR BHI DOOB GAYA, HIDDEN GEM INTRO, ya POORA SAFAR? Phir Hinglish hook draft karo.";
+  }
+
+  // Detect off-lane content (GTA roleplay, mobile grind, live streams) — not @NotAgainNeo's format
+  function isOffLane(title) {
+    var t = (title || "").toLowerCase();
+    if (/franklin.*shinchan|shinchan.*franklin|gta.*real life#|buying everything.*gta|franklin.*buying/i.test(t)) return true;
+    if (/rank push|crate opening|conqueror.*rank|rank.*conqueror|\bbgmi live\b|free fire.*\blive\b/i.test(t)) return true;
+    if (/\[live\]|🔴.*live\b|#bgmilive|#fflive/i.test(t)) return true;
+    if (/\d{2,}\+?\s*kill.*world record|world record.*\d{2,}\s*kill/i.test(t)) return true;
+    return false;
   }
 
   // ---------- utils ----------

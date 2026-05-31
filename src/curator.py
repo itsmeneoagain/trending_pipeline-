@@ -20,33 +20,34 @@ _STORY_GAMES = frozenset([
     "mass effect", "dragon age", "assassin's creed", "batman", "spider-man", "max payne",
     "street fighter", "devil may cry", "metal gear", "silent hill", "bioshock",
     "fallout", "elder scrolls", "doom", "gta", "half-life", "portal", "dishonored",
+    "forza", "ace combat", "no law", "star citizen", "crimson desert", "black flag",
 ])
 _EASTER_PATTERNS = frozenset([
     "easter egg", "hidden", "secret", "reference", "cameo", "tribute", "saddest",
-    "connection", "easter", "you missed",
+    "connection", "easter", "you missed", "notice", "kisi ne", "99%",
 ])
 _HISTORY_PATTERNS = frozenset([
     "history", "story of", "what happened", "how did", "why did", "evolution",
     "origin", "rise of", "fall of", "remember when", "retro", "classic", "nostalgia",
-    "anniversary", "years ago", "old school", "comeback",
+    "anniversary", "years ago", "old school", "comeback", "poora safar", "saal",
+    "journey", "first time",
 ])
 _INDUSTRY_PATTERNS = frozenset([
     "million copies", "ban", "lawsuit", "layoffs", "shut down", "acquired",
     "controversy", "apolog", "drama", "backlash", "studio closed", "cancelled",
-    "price increase", "microtransaction", "scam", "refund",
+    "price increase", "microtransaction", "scam", "refund", "negative review",
+    "wishlist", "flopped", "doob", "failed", "failure",
+    "khatam", "asli kahani", "din mein khatam", "dooba", "band ho",
 ])
 _INDIE_PATTERNS = frozenset([
     "indie", "solo dev", "small team", "my game", "our game", "working on",
     "making a game", "demo release", "kickstarter", "early access", "wishlist",
+    "tuffted", "tufted", "rug",
 ])
 _NEWS_PATTERNS = frozenset([
     "rated", "leaked", "reportedly", "confirmed", "trailer", "reveal",
     "announcement", "pre-order", "release date", "coming soon", "just announced",
-    "expansion", "dlc", "season",
-])
-_GENRE_PATTERNS = frozenset([
-    "co-op", "multiplayer", "horror games", "best games", "top games",
-    "games like", "similar to", "recommend", "roguelike", "rpg list", "strategy games",
+    "expansion", "dlc", "season", "open beta", "playtest",
 ])
 _ESPORTS_PATTERNS = frozenset([
     "world record", "rank push", "conqueror", "grandmaster", "tournament",
@@ -59,11 +60,19 @@ _MOD_PATTERNS = frozenset([
 
 
 def _smart_fallback_angle(item: dict) -> dict:
-    """Channel-strategy-aligned fallback angle when Gemini is unavailable or fails.
+    """Rule-based angle generator tuned to @NotAgainNeo's 10 proven formats.
 
-    Maps trends to the 6 core content angles — game intro, topical explainer,
-    breaking news, pop-culture tie-in, profile/dev story, or gaming history —
-    instead of generic 'reaction/let's-play' suggestions.
+    Ordered by actual channel view performance:
+      1. KISI NE NOTICE KIYA?      (3,123 views) — hidden developer detail
+      2. GAMER IS BEING REPLACED   (2,265 views) — AI/automation angle
+      3. PHIR BHI DOOB GAYA        (1,924 views) — launch failure story
+      4. GAME EXPLAINED            (1,201 views) — franchise story/lore
+      5. HIDDEN GEM INTRO          (1,788 views) — underrated game discovery
+      6. POORA SAFAR               (1,297 views) — franchise history
+      7. 99% LOGON NE MISS KIYA    (1,042 views) — movie/pop-culture tie-in
+      8. KOI BAAT KYUN NAHI KAR RAHA? (954 views) — overlooked game
+      9. RS X NE RS Y KO HARAYA    (919  views) — Indian pricing comparison
+     10. ASLI KAHANI               (738  views) — behind-the-scenes drama
     """
     title = item.get("title", "")
     source = item.get("source", "")
@@ -72,74 +81,134 @@ def _smart_fallback_angle(item: dict) -> dict:
     t = title.lower()
     short = title[:55] + ("…" if len(title) > 55 else "")
 
-    is_story_game = any(g in t for g in _STORY_GAMES)
-    is_easter = any(k in t for k in _EASTER_PATTERNS)
-    is_history = any(k in t for k in _HISTORY_PATTERNS)
-    is_industry = any(k in t for k in _INDUSTRY_PATTERNS)
-    is_indie = any(k in t for k in _INDIE_PATTERNS)
-    is_news = any(k in t for k in _NEWS_PATTERNS)
-    is_genre = any(k in t for k in _GENRE_PATTERNS)
-    is_esports = any(k in t for k in _ESPORTS_PATTERNS)
-    is_mod = any(k in t for k in _MOD_PATTERNS)
+    is_story_game  = any(g in t for g in _STORY_GAMES)
+    is_easter      = any(k in t for k in _EASTER_PATTERNS)
+    is_history     = any(k in t for k in _HISTORY_PATTERNS)
+    is_industry    = any(k in t for k in _INDUSTRY_PATTERNS)
+    is_indie       = any(k in t for k in _INDIE_PATTERNS)
+    is_news        = any(k in t for k in _NEWS_PATTERNS)
+    is_esports     = any(k in t for k in _ESPORTS_PATTERNS)
+    is_mod         = any(k in t for k in _MOD_PATTERNS)
+    is_cinema      = any(k in t for k in ("movie", "film", "series", "netflix", "trailer", "web series"))
+    is_pricing     = any(k in t for k in ("price", "cost", "₹", "dollar", "expensive", "cheap", "budget", "sale", "discount"))
+    is_ai          = any(k in t for k in ("replace", " ai ", "automat", "robot", " job ", "automation", "artificial"))
+    is_failure     = any(k in t for k in ("fail", "flop", "doob", "wishlist", "negative review", "shutdown", "cancelled", "bankrupt", "layoff"))
 
-    if is_time_sensitive and is_news:
-        return {
-            "angle": f"Fast 30-sec Short: '{short}' — 'reportedly' ya 'just confirmed' framing. First-mover ban jao is news pe.",
-            "why": "Time-sensitive — sabse pehle cover karne ka chance.",
-        }
+    # FORMAT 1: "KISI NE NOTICE KIYA?" — hidden/developer-confirmed detail, easter egg
     if is_easter:
         return {
-            "angle": f"'{short}' ka hidden connection reveal karo — 'Kya tumne yeh notice kiya?' hook. Pop culture tie-in, zero Hinglish coverage.",
-            "why": "Easter egg / hidden reference angle — high hook potential.",
+            "angle": (
+                f"KISI NE NOTICE KIYA?: 'Bhai, '{short}' mein ek cheez hai "
+                f"jo developer ne khud confirm ki — aur sirf 1% log jaante hain.' "
+                f"Zero Hinglish coverage."
+            ),
+            "why": "Hidden detail / easter egg — channel's #1 proven format (3,123 views).",
         }
-    if is_story_game and any(k in t for k in ("story", "lore", "history", "part", "chapter", "origin")):
+
+    # FORMAT 2: "GAMER IS BEING REPLACED" — AI / automation / real-job angle
+    if is_ai:
         return {
-            "angle": f"'{short}' ki puri kahani ek Reel mein — cinematic cuts, mystery opener. 'Yeh game itna dark kyun hai?' type hook.",
-            "why": "Game story breakdown — almost no competition in Hinglish.",
+            "angle": (
+                f"GAMER IS BEING REPLACED: 'Ye game tumhe apni hi cheez se replace "
+                f"karna sikhata hai.' '{short}' ka real-world AI/job angle."
+            ),
+            "why": "AI / automation angle — channel's #2 proven format (2,265 views).",
         }
+
+    # FORMAT 3 + 10: "PHIR BHI DOOB GAYA" / "ASLI KAHANI" — launch failure, drama
+    if is_failure or is_industry:
+        return {
+            "angle": (
+                f"PHIR BHI DOOB GAYA: '[Budget/wishlists] tha, phir bhi doob gaya.' "
+                f"'{short}' ki asli kahani — Concord/Outbound style failure story."
+            ),
+            "why": "Game failure / studio drama — channel's #3 proven format (1,924 views).",
+        }
+
+    # FORMAT 7: "99% LOGON NE MISS KIYA" — movie/cinema/pop-culture connection
+    if is_cinema:
+        return {
+            "angle": (
+                f"99% LOGON NE MISS KIYA: '[Movie/Series] mein '{short}' ka easter egg "
+                f"chhupa hai jo director ne confirm kiya.' RE Movie + Forza style cinema tie-in."
+            ),
+            "why": "Cinema connection — Neo is a film lover, proven 1,042-view format.",
+        }
+
+    # FORMAT 9: "RS X NE RS Y KO HARAYA" — Indian pricing / budget vs AAA
+    if is_pricing:
+        return {
+            "angle": (
+                f"RS X NE RS Y KO HARAYA: 'Rs[price] ke '{short}' ne Rs[AAA] waale game ko "
+                f"kaise haraya? India mein worth it hai?' Direct comparison."
+            ),
+            "why": "Indian pricing angle — proven 919-view Neo format.",
+        }
+
+    # FORMAT 6: "POORA SAFAR" — franchise / series history in one Short
     if is_history:
         return {
-            "angle": f"'{short}' — 'Yeh kab hua aur kyun?' explainer. Gaming history as cinematic storytelling, direct-to-camera no-filter voice.",
-            "why": "Gaming history explainers drive strong organic reach.",
+            "angle": (
+                f"POORA SAFAR: '[X] saal. [Y] games. '{short}' ka poora safar.' "
+                f"Franchise history cinematic Short — '13 saal. 6 desh.' style."
+            ),
+            "why": "Franchise history — proven 1,297-view Neo format.",
         }
-    if is_industry:
+
+    # FORMAT 8: "KOI BAAT KYUN NAHI KAR RAHA?" — overlooked news / upcoming game
+    if is_time_sensitive or (is_news and tier in ("T1", "T2")):
         return {
-            "angle": f"'{short}' ka real story — industry drama ka player impact angle. Indian pricing ya developer struggle pe focus.",
-            "why": "Industry news — oblique angle avoids crowded coverage.",
+            "angle": (
+                f"KOI BAAT KYUN NAHI KAR RAHA?: '{short}' aa raha hai / confirm hua — "
+                f"aur koi baat kyun nahi kar raha? Fast first-mover Short. 007 First Light style."
+            ),
+            "why": "Overlooked news — first-mover, 954-view proven format.",
         }
-    if tier == "T1" and (is_indie or source == "reddit"):
+
+    # FORMAT 5: "HIDDEN GEM INTRO" — T1 underrated / indie game
+    if tier == "T1" or is_indie:
         return {
-            "angle": f"Hidden gem intro: '{short}' — zero Hinglish coverage. Hook: 'Koi nahi jaanta yeh game exist karta hai — aur yeh galti hai.'",
-            "why": "Open-lane T1 discovery — channel's core positioning.",
+            "angle": (
+                f"HIDDEN GEM INTRO: 'Ye game exist karta hai aur koi baat nahi karta. "
+                f"Aaj hum batate hain.' '{short}' — Hacknet style zero-coverage discovery."
+            ),
+            "why": "T1 hidden gem — open lane, channel's proven 1,788-view format.",
         }
-    if is_genre:
+
+    # FORMAT 4: "GAME EXPLAINED" — story/lore/mechanics of known franchise
+    if is_story_game and any(k in t for k in ("story", "lore", "explained", "breakdown", "origin", "saga", "journey")):
         return {
-            "angle": f"'{short}' pe Tier 3 list banao — Indian context add karo: pricing, availability, PC/mobile support, regional relevance.",
-            "why": "Genre list content drives recommendations and repeat views.",
+            "angle": (
+                f"GAME EXPLAINED: 'Poori kahani 60 seconds mein.' '{short}' — "
+                f"Black Flag Explained / AC Explained style cinematic story Short."
+            ),
+            "why": "Game story explainer — proven 1,201-view Black Flag/AC Neo format.",
         }
-    if is_news:
-        return {
-            "angle": f"'{short}' — news ko sideways cover karo. 'Indian gamers ke liye iska kya matlab hai?' Avoid obvious headline take.",
-            "why": "Trending news — T2 adjacency approach keeps us differentiated.",
-        }
+
     if is_esports:
         return {
-            "angle": f"'{short}' — player profile ya competitive scene ka 'rise of Indian esports' angle. Oblique T2 — bada game, chhota unexplored story.",
-            "why": "Esports achievement trending — Indian competitive gaming storyline.",
+            "angle": (
+                f"KOI BAAT KYUN NAHI KAR RAHA? (oblique): '{short}' — competitive scene ka "
+                f"Indian angle. 'Indian players yahan kyun dominate karte hain?' Sideways T2 take."
+            ),
+            "why": "Esports — oblique Indian competitive angle.",
         }
+
     if is_mod:
         return {
-            "angle": f"'{short}' — yeh mod ya challenge Indian audience ne nahi dekha Hinglish mein. 'Games within games' ya 'yeh possible hai?' hook.",
-            "why": "Viral mod/challenge content — oblique T2 angle on base game.",
+            "angle": (
+                f"HIDDEN GEM INTRO (oblique): '{short}' mein jo mechanic/mod hai — "
+                f"'Ye possible hai?' ya developer story approach. Avoid direct coverage."
+            ),
+            "why": "Viral mod — oblique T2 sideways angle on base game.",
         }
-    if is_indie:
-        return {
-            "angle": f"'{short}' — 'Ek chhota team ne yeh banaya' developer story angle. Small studio, big ambition, zero Hinglish coverage.",
-            "why": "Indie game profile — high discovery value, T1 lane.",
-        }
+
     return {
-        "angle": f"'{short}' — pehle check karo: T1 gem hai, oblique T2 angle hai, ya developer story hai? Phir 30-sec Hinglish hook draft karo.",
-        "why": f"Trending on {source} — manual strategy fit check needed.",
+        "angle": (
+            f"'{short}' — check: KISI NE NOTICE KIYA?, PHIR BHI DOOB GAYA, "
+            f"HIDDEN GEM INTRO, ya POORA SAFAR? Phir Hinglish hook draft karo."
+        ),
+        "why": f"Trending on {source} — manual Neo format matching needed.",
     }
 
 
@@ -159,8 +228,7 @@ def curate_item(item: dict) -> dict:
     """Research and generate a creative content angle for a single trend item.
 
     Uses Gemini 2.5 Flash with Google Search grounding.
-    Gracefully falls back to standard generation if the search tool is unavailable,
-    or returns empty values if the API key is not configured or fails.
+    Falls back to _smart_fallback_angle (Neo's 10 proven formats) on any failure.
 
     Args:
         item: Scored trend dictionary containing 'title', 'source', etc.
@@ -175,133 +243,146 @@ def curate_item(item: dict) -> dict:
     source = item.get("source", "")
     stats = item.get("stats", "") or "No stats available"
 
-    prompt = f"""You are a content-discovery assistant for an Indian gaming channel (YouTube Shorts + Instagram Reels) making Hinglish (Hindi + English) content.
-
-The following gaming topic is trending right now:
-Title: "{title}"
-Source: {source}
-Stats: {stats}
-
-Please research this topic on the web to understand why it is currently popular (recent trailers, announcements, player discussions, or drama).
-Then, generate a creative content angle / video hook idea tailored exactly to our channel strategy profile.
-
-## CHANNEL PROFILE & ALIGNMENT
-- Identity: Hinglish (Hindi + English) gaming discovery channel. Casual, direct-to-camera, no-filter voice.
-- Core Positioning: Covers underrated, indie, and overlooked games — and stories — that the big Hindi/Hinglish creators ignore. We do NOT compete head-on on mainstream titles.
-- Tiers to align:
-  - Tier 1 (Hidden Gem): Underrated game with little/no Hinglish coverage.
-  - Tier 2 (Big-Search Adjacency): Massive game approached from an oblique/adjacent angle, never the obvious take.
-  - Tier 3 (Genre List): Themed best-of lists.
-- Content Angles (must choose one):
-  - Game introductions ("you've never heard of this — here's why it's special")
-  - Topical explainers
-  - Breaking news (time-sensitive, report leaks as "reportedly" or "leaked")
-  - Movie/pop-culture tie-ins & easter eggs
-  - Profile pieces (industry people / developers)
-  - Game history & cinematic storytelling
-- Format: Shorts ~35-45s or Reels ~22-28s. Narrative-first, mystery-building hooks, cinematic. Avoid tutorials and roasts.
-- CRITICAL: NEVER suggest let's plays, reaction videos, commentary streams, "covering the buzz", or "community reactions" type content. Always pick exactly one of the 6 core angles above.
-
-Please output the following two fields:
-1. "why": A short, 1-sentence explanation of why it is trending (max 15 words).
-2. "angle": A highly engaging, creative Hinglish content angle / video hook idea for a 60-second video (Shorts/Reels) exactly matching our profile. Write in our casual, direct-to-camera voice. Give a specific hook and angle (max 40 words). Must be one of the 6 core angles.
-
-Respond with ONLY a valid JSON object matching this schema:
-{{
-  "why": "why it is trending",
-  "angle": "creative Hinglish hook and content angle matching our positioning"
-}}"""
+    prompt = (
+        'You are a content-strategy AI for the YouTube Shorts channel "@NotAgainNeo" '
+        "— a Hinglish gaming discovery channel.\n\n"
+        "## TRENDING ITEM TO ANALYSE\n"
+        f'Title: "{title}"\n'
+        f"Source: {source}\n"
+        f"Stats: {stats}\n\n"
+        "Research this on the web to understand why it's trending, then generate ONE "
+        "video idea using the channel's PROVEN formats.\n\n"
+        "## CHANNEL IDENTITY\n"
+        '- Bio: "kaam se coder, dil se gamer, aur huge cinema lover"\n'
+        "- Language: Hinglish — casual, first-person, direct-to-camera, no-filter\n"
+        "- Core lane: Discovery/explainer — underrated games, industry stories, hidden "
+        "details that big Hindi creators ignore\n\n"
+        "## 10 PROVEN FORMATS (pick the BEST fit — actual top-performing videos)\n\n"
+        "1. **KISI NE NOTICE KIYA?** — Developer-confirmed hidden detail / easter egg. (3,123 views)\n"
+        '   Hook: "Bhai, [game] mein ek cheez hai jo sirf 1% log jaante hain..."\n\n'
+        "2. **GAMER IS BEING REPLACED** — Game mirroring AI/automation replacing real jobs. (2,265 views)\n"
+        '   Hook: "Ye game tumhe apni hi [job/skill] se replace karna sikhata hai."\n\n'
+        "3. **PHIR BHI DOOB GAYA** — Massive hype game that still flopped / cancelled. (1,924 views)\n"
+        '   Hook: "[X] million wishlists thi / [budget] tha, phir bhi doob gaya."\n\n'
+        "4. **HIDDEN GEM INTRO** — Underrated game with zero Hinglish coverage. (1,788 views — Hacknet)\n"
+        '   Hook: "Ye game exist karta hai aur koi baat nahi karta. Aaj hum batate hain."\n\n'
+        "5. **POORA SAFAR** — Full franchise or genre history in one Short. (1,297 views — Forza 13 saal)\n"
+        '   Hook: "[X] saal. [Y] games. [Franchise] ka poora safar."\n\n'
+        "6. **99% LOGON NE MISS KIYA** — Movie/show easter egg in a game. (1,042 views — RE movie)\n"
+        '   Hook: "[Movie] trailer mein [game] ka easter egg chhupa hai jo director ne confirm kiya."\n\n'
+        "7. **KOI BAAT KYUN NAHI KAR RAHA?** — Overlooked upcoming/new game. (954 views — 007 First Light)\n"
+        '   Hook: "[Game] aa raha hai [date] ko — aur koi baat kyun nahi kar raha?"\n\n'
+        "8. **Rs X NE Rs Y KO HARAYA** — Budget indie beats expensive AAA, Indian price angle. (919 views)\n"
+        '   Hook: "Rs[X] ke game ne Rs[Y] AAA ko kaise haraya?"\n\n'
+        "9. **ASLI KAHANI** — Behind-the-scenes studio failure or industry drama. (738 views — Concord)\n"
+        '   Hook: "[Budget] ka budget, [timeline] mein khatam. [Game] ki asli kahani."\n\n'
+        "10. **GAME EXPLAINED** — Story/lore/mechanics of a franchise in 60 seconds. (1,201 views — Black Flag)\n"
+        '    Hook: "[Game] explained — poori [story/journey/mechanic] 60 seconds mein."\n\n'
+        "## STRICT RULES\n"
+        "- Pick EXACTLY ONE format — include its name in the angle\n"
+        "- NEVER suggest: let's plays, reaction videos, rank push, crate opening, 'covering the buzz'\n"
+        "- Write hook in Hinglish — punchy, first-person, 40 words max\n"
+        "- Give the actual opening sentence for the Short\n\n"
+        "Output ONLY valid JSON:\n"
+        "{{\n"
+        '  "why": "why this is trending — 1 sentence, max 15 words",\n'
+        '  "angle": "[FORMAT NAME]: specific Hinglish hook opening line — max 40 words"\n'
+        "}}"
+    )
 
     # Attempt 1: Gemini with Google Search grounding enabled
     try:
         logger.debug("Requesting AI curation for: '%s' with Google Search grounding...", title[:50])
-        
-        # Configure tool and generation parameters
         grounding_tool = types.Tool(google_search=types.GoogleSearch())
         config = types.GenerateContentConfig(
             tools=[grounding_tool],
             temperature=0.7,
-            response_mime_type="application/json"
+            response_mime_type="application/json",
         )
-        
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
-            config=config
+            config=config,
         )
-        
         result = json.loads(response.text.strip())
         if isinstance(result, dict) and "angle" in result and "why" in result:
             return result
 
     except Exception as exc:
         logger.debug("Gemini with search grounding failed, retrying without tools: %s", exc)
-        
-        # Attempt 2: Fallback to standard text generation without search tools
+
+        # Attempt 2: standard generation without search tools
         try:
             config_fallback = types.GenerateContentConfig(
                 temperature=0.7,
-                response_mime_type="application/json"
+                response_mime_type="application/json",
             )
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=prompt,
-                config=config_fallback
+                config=config_fallback,
             )
             result = json.loads(response.text.strip())
             if isinstance(result, dict) and "angle" in result and "why" in result:
                 return result
         except Exception as exc_fallback:
-            logger.error("Gemini standard generation fallback failed for '%s': %s", title[:50], exc_fallback)
+            logger.error(
+                "Gemini standard generation fallback failed for '%s': %s",
+                title[:50],
+                exc_fallback,
+            )
 
-    # Both Gemini attempts failed — use rule-based strategy-aligned fallback
+    # Both Gemini attempts failed — use Neo's proven rule-based fallback
     return _smart_fallback_angle(item)
 
 
 def curate_trends(items: list[dict], limit: int = 10) -> list[dict]:
     """Curate a list of items, annotating them in-place with 'ai_angle' and 'ai_why'.
 
-    Limits curation to the top `limit` items to respect free-tier rate limits and speed up execution.
+    Top `limit` items are sent to Gemini; the rest use the rule-based fallback.
 
     Args:
         items: List of scored trend dictionaries.
-        limit: Maximum number of items to curate.
+        limit: Maximum number of items to send to Gemini.
 
     Returns:
         The annotated list of items.
     """
     if not client:
-        logger.info("Skipping AI Curation Layer (GEMINI_API_KEY not configured).")
+        logger.info("Skipping Gemini (no API key) — using rule-based Neo formats for all items.")
         for item in items:
-            item["ai_angle"] = ""
-            item["ai_why"] = item.get("why") or f"Trending on {item.get('source')}."
+            fallback = _smart_fallback_angle(item)
+            item["ai_angle"] = fallback["angle"]
+            item["ai_why"] = fallback["why"]
         return items
 
-    logger.info("━━━ AI Curation Layer starting (curating top %d items) ━━━", limit)
-    
+    logger.info("AI Curation Layer starting (curating top %d items).", limit)
+
     curated_count = 0
     for idx, item in enumerate(items):
         if idx >= limit:
-            # For remaining items, add blank or simple default fields
-            item["ai_angle"] = ""
-            item["ai_why"] = item.get("why") or f"Trending on {item.get('source')}."
+            # Items beyond Gemini limit also get the rule-based fallback
+            fallback = _smart_fallback_angle(item)
+            item["ai_angle"] = fallback["angle"]
+            item["ai_why"] = fallback["why"]
             continue
 
         start_time = time.monotonic()
         curation = curate_item(item)
-        
+
         item["ai_angle"] = curation.get("angle", "")
-        # Update the 'why' field with the researched explanation
         item["ai_why"] = curation.get("why", "") or item.get("why", "")
 
         curated_count += 1
         elapsed = time.monotonic() - start_time
-        logger.info("AI Curation [%d/%d] done: '%s' (took %.1fs)", curated_count, limit, item.get("title", "")[:40], elapsed)
+        logger.info(
+            "AI Curation [%d/%d] done: '%s' (%.1fs)",
+            curated_count, limit, item.get("title", "")[:40], elapsed,
+        )
 
-        # To comply with the standard Gemini Free Tier 5 Requests Per Minute (RPM) limit
-        # (which requires at least 12 seconds between requests), we sleep 12.5 seconds.
+        # Gemini free tier: 5 RPM — sleep 12.5s between requests
         if idx < limit - 1:
             time.sleep(12.5)
 
-    logger.info("━━━ AI Curation Layer complete: %d items curated ━━━", curated_count)
+    logger.info("AI Curation complete: %d items curated.", curated_count)
     return items
