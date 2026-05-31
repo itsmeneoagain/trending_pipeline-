@@ -46,6 +46,7 @@ def get_local_ip() -> str:
 # ── Dashboard & Static File Assets ───────────────────────────────────
 
 @app.route("/")
+@app.route("/game-content-radar.html")
 def index():
     """Serve the game-content-radar.html dashboard."""
     root_dir = os.path.join(os.path.dirname(__file__), '..')
@@ -59,6 +60,8 @@ def index():
 
 
 @app.route("/pipeline")
+@app.route("/content-pipeline")
+@app.route("/content-pipeline.html")
 def pipeline_dashboard():
     """Serve the content-pipeline.html dedicated board."""
     root_dir = os.path.join(os.path.dirname(__file__), '..')
