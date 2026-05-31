@@ -49,6 +49,58 @@
   }
   .wrap{max-width:1180px;margin:0 auto;position:relative;z-index:1}
 
+  /* ---------- creators panel ---------- */
+  .creators-panel{
+    background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);
+    padding:15px 18px;margin-bottom:18px;
+  }
+  .creators-panel h3{
+    font-family:var(--display);font-size:13px;font-weight:700;letter-spacing:.05em;
+    text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;
+  }
+  .creators-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:15px;
+  }
+  @media (max-width:600px){ .creators-grid{grid-template-columns:1fr} }
+  .creator-section{
+    background:rgba(255,255,255,.01);border:1px solid var(--line-soft);
+    border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:9px;
+  }
+  .creator-section h4{
+    font-family:var(--display);font-size:11px;letter-spacing:.05em;color:var(--muted);
+    text-transform:uppercase;display:flex;align-items:center;gap:6px;
+  }
+  .creator-input-group{
+    display:flex;gap:6px;
+  }
+  .creator-input-group input{
+    flex:1;background:var(--bg);border:1px solid var(--line);border-radius:8px;
+    padding:6px 10px;color:var(--text);font-size:12.5px;
+  }
+  .creator-input-group input:focus{
+    outline:none;border-color:var(--lime);
+  }
+  .creator-list{
+    display:flex;flex-wrap:wrap;gap:6px;min-height:26px;margin-top:4px;
+  }
+  .creator-tag{
+    font-size:11px;background:var(--line-soft);border:1px solid var(--line);
+    border-radius:6px;padding:3px 8px;display:inline-flex;align-items:center;gap:6px;
+  }
+  .creator-tag span{
+    cursor:pointer;color:var(--faint);font-weight:700;font-size:13px;
+  }
+  .creator-tag span:hover{
+    color:var(--hot);
+  }
+
+  .tcard.has-url, .pcard.has-url{
+    cursor:pointer;
+  }
+  .tcard.has-url:hover, .pcard.has-url:hover{
+    border-color:var(--accent, var(--muted));
+  }
+
   /* ---------- header ---------- */
   header{
     display:flex;align-items:flex-end;justify-content:space-between;
@@ -249,6 +301,34 @@
     </div>
   </header>
 
+  <!-- CREATOR CONFIGURATION PANEL -->
+  <section class="creators-panel">
+    <h3>
+      <span>👥 Dynamic Competitor Roster (YouTube / Instagram)</span>
+      <button class="btn btn-ghost" id="toggleCreatorsBtn" style="padding:0">▼ Show Panel</button>
+    </h3>
+    <div id="creatorsPanelContent" style="display:none; margin-top:12px;">
+      <div class="creators-grid">
+        <div class="creator-section">
+          <h4>🔴 YouTube Competitor Channels</h4>
+          <div class="creator-input-group">
+            <input type="text" id="ytCreatorInput" placeholder="Paste Channel ID (e.g. UC...)">
+            <button class="btn btn-primary" id="addYtCreatorBtn" style="padding:6px 12px; font-size:11px;">+ Add</button>
+          </div>
+          <div class="creator-list" id="ytCreatorList"></div>
+        </div>
+        <div class="creator-section">
+          <h4>📸 Instagram Competitor Profiles</h4>
+          <div class="creator-input-group">
+            <input type="text" id="igCreatorInput" placeholder="Type IG Handle (e.g. gamer_profile)">
+            <button class="btn btn-primary" id="addIgCreatorBtn" style="padding:6px 12px; font-size:11px;">+ Add</button>
+          </div>
+          <div class="creator-list" id="igCreatorList"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <div class="grid">
 
     <!-- TRENDING -->
@@ -292,6 +372,13 @@
           </select>
         </div>
         <button class="btn btn-primary" id="addBtn" style="justify-content:center">+ Add to pipeline</button>
+      </div>
+      <div class="filters" id="pipelineFilters" style="padding: 10px 18px 0;">
+        <button class="fchip active" data-f="all">All</button>
+        <button class="fchip" data-f="Idea">Idea</button>
+        <button class="fchip" data-f="Scripting">Scripting</button>
+        <button class="fchip" data-f="Filming">Filming</button>
+        <button class="fchip" data-f="Posted">Posted</button>
       </div>
       <div class="pl-list" id="pipelineList"></div>
     </aside>
@@ -369,6 +456,7 @@
   var trends = SEED.slice();
   var pipeline = [];
   var activeFilter = "all";
+  var activePipelineFilter = "all";
 
   var $ = function(id){return document.getElementById(id);};
   var trendList = $("trendList");
@@ -493,11 +581,18 @@
         (t.why?'<div class="why">↳ '+esc(t.why)+'</div>':'')+
         '<div class="tcard-foot"><button class="add-btn">+ Add to pipeline</button></div>';
       var btn = card.querySelector(".add-btn");
-      btn.addEventListener("click", function(){
+       btn.addEventListener("click", function(){
         btn.textContent = "⌛ Moving...";
         btn.disabled = true;
         addToPipeline({title:t.title, tier:tier, platform:"Both", note:t.angle||"", urgent:!!t.urgent}, t.title, btn);
       });
+      if(t.url) {
+        card.classList.add("has-url");
+        card.addEventListener("click", function(e){
+          if(e.target.closest("button") || e.target.closest("a")) return;
+          window.open(t.url, "_blank");
+        });
+      }
       trendList.appendChild(card);
     });
   }
@@ -553,13 +648,30 @@
     pipelineList.innerHTML = "";
     $("queueCount").textContent = pipeline.length;
     renderStats();
-    if(!pipeline.length){
-      pipelineList.innerHTML = '<div class="empty"><div class="big">＋</div>No content queued yet.<br>Tap a trend on the left, or add your own above.</div>';
+    
+    var shown = pipeline.filter(function(p){
+      if(activePipelineFilter === "all") return true;
+      return p.status === activePipelineFilter;
+    });
+
+    if(!shown.length){
+      pipelineList.innerHTML = '<div class="empty"><div class="big">∅</div>No items in this status filter.</div>';
       return;
     }
-    pipeline.forEach(function(p){
+    shown.forEach(function(p){
       var card = document.createElement("div");
       card.className = "pcard";
+      
+      var urlMatch = p.note ? p.note.match(/https?:\/\/[^\s]+/g) : null;
+      var cardUrl = urlMatch ? urlMatch[0] : null;
+      if (cardUrl) {
+        card.classList.add("has-url");
+        card.addEventListener("click", function(e){
+          if(e.target.closest("button") || e.target.closest("a")) return;
+          window.open(cardUrl, "_blank");
+        });
+      }
+
       var tier = (p.tier===2||p.tier==="2")?2:(p.tier===3||p.tier==="3")?3:1;
       var tierTxt = tier===1?"T1":tier===2?"T2":"T3";
       card.innerHTML =
@@ -646,6 +758,15 @@
     renderTrends();
   });
 
+  // ---------- pipeline filters ----------
+  $("pipelineFilters").addEventListener("click", function(e){
+    var b = e.target.closest(".fchip"); if(!b) return;
+    activePipelineFilter = b.getAttribute("data-f");
+    Array.prototype.forEach.call(this.children, function(c){ c.classList.remove("active"); });
+    b.classList.add("active");
+    renderPipeline();
+  });
+
   // ---------- reset trends to seed ----------
   $("resetTrends").addEventListener("click", function(){
     trends = SEED.slice(); saveTrends(); renderTrends(); toast("Reset to seed list");
@@ -698,6 +819,119 @@
   }
 
 
+  // ---------- dynamic creator roster configuration ----------
+  var toggleCreatorsBtn = $("toggleCreatorsBtn");
+  var creatorsPanelContent = $("creatorsPanelContent");
+  var ytCreatorInput = $("ytCreatorInput");
+  var igCreatorInput = $("igCreatorInput");
+  var ytCreatorList = $("ytCreatorList");
+  var igCreatorList = $("igCreatorList");
+
+  toggleCreatorsBtn.addEventListener("click", function(){
+    if(creatorsPanelContent.style.display === "none") {
+      creatorsPanelContent.style.display = "block";
+      toggleCreatorsBtn.textContent = "▲ Hide Panel";
+      loadCreators();
+    } else {
+      creatorsPanelContent.style.display = "none";
+      toggleCreatorsBtn.textContent = "▼ Show Panel";
+    }
+  });
+
+  function loadCreators(){
+    fetch(API_BASE + "api/creators")
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        if(data.error) throw new Error(data.error);
+        renderCreators(data);
+      })
+      .catch(function(err){
+        console.error("Failed to load creators roster: ", err);
+      });
+  }
+
+  function renderCreators(data){
+    ytCreatorList.innerHTML = "";
+    igCreatorList.innerHTML = "";
+
+    var yts = data.youtube || [];
+    var igs = data.instagram || [];
+
+    if(!yts.length) ytCreatorList.innerHTML = '<span class="footnote">No YouTube channels tracked.</span>';
+    yts.forEach(function(handle){
+      var tag = document.createElement("div");
+      tag.className = "creator-tag";
+      tag.innerHTML = esc(handle) + ' <span data-p="youtube" data-h="'+esc(handle)+'">×</span>';
+      ytCreatorList.appendChild(tag);
+    });
+
+    if(!igs.length) igCreatorList.innerHTML = '<span class="footnote">No Instagram profiles tracked.</span>';
+    igs.forEach(function(handle){
+      var tag = document.createElement("div");
+      tag.className = "creator-tag";
+      tag.innerHTML = '@' + esc(handle) + ' <span data-p="instagram" data-h="'+esc(handle)+'">×</span>';
+      igCreatorList.appendChild(tag);
+    });
+
+    // Bind delete triggers
+    var triggers = creatorsPanelContent.querySelectorAll(".creator-tag span");
+    Array.prototype.forEach.call(triggers, function(el){
+      el.addEventListener("click", function(){
+        var p = el.getAttribute("data-p");
+        var h = el.getAttribute("data-h");
+        deleteCreator(p, h);
+      });
+    });
+  }
+
+  function addCreator(platform, handle){
+    if(!handle) return;
+    toast("Adding " + platform + " creator...");
+    fetch(API_BASE + "api/creators/add", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ platform: platform, handle: handle })
+    })
+    .then(function(res){ return res.json(); })
+    .then(function(data){
+      if(data.error) throw new Error(data.error);
+      toast("Creator added ✓");
+      renderCreators(data.creators);
+    })
+    .catch(function(err){
+      console.error(err);
+      toast("Failed to add creator", true);
+    });
+  }
+
+  function deleteCreator(platform, handle){
+    toast("Removing creator...");
+    fetch(API_BASE + "api/creators/delete", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ platform: platform, handle: handle })
+    })
+    .then(function(res){ return res.json(); })
+    .then(function(data){
+      if(data.error) throw new Error(data.error);
+      toast("Creator removed ✓");
+      renderCreators(data.creators);
+    })
+    .catch(function(err){
+      console.error(err);
+      toast("Failed to remove creator", true);
+    });
+  }
+
+  $("addYtCreatorBtn").addEventListener("click", function(){
+    var h = ytCreatorInput.value.trim();
+    if(h) { addCreator("youtube", h); ytCreatorInput.value = ""; }
+  });
+  $("addIgCreatorBtn").addEventListener("click", function(){
+    var h = igCreatorInput.value.trim();
+    if(h) { addCreator("instagram", h); igCreatorInput.value = ""; }
+  });
+
   // ---------- utils ----------
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
@@ -715,6 +949,7 @@
   Promise.all([loadTrends(), loadPipeline()]).then(function(){
     renderTrends();
     renderPipeline();
+    loadCreators();
   });
 })();
 </script>

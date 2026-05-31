@@ -1,10 +1,10 @@
-"""Purge/archive all existing items in the Notion Trending Topics database."""
+"""Purge/archive all existing items in both the Notion Trending Topics and Content Pipeline databases."""
 
 import logging
 import time
 import requests
 
-from src.config import NOTION_API_KEY, NOTION_TRENDING_DB_ID
+from src.config import NOTION_API_KEY, NOTION_TRENDING_DB_ID, NOTION_PIPELINE_DB_ID
 
 # ── Logging setup ────────────────────────────────────────────────────
 logging.basicConfig(
@@ -26,14 +26,14 @@ def _headers() -> dict:
     }
 
 
-def fetch_all_page_ids() -> list[str]:
-    """Query the entire database and fetch all page IDs (paginated)."""
+def fetch_all_page_ids(db_id: str, db_name: str) -> list[str]:
+    """Query a database and fetch all active page IDs (paginated)."""
     page_ids = []
     has_more = True
     start_cursor = None
-    url = f"{NOTION_BASE_URL}/databases/{NOTION_TRENDING_DB_ID}/query"
+    url = f"{NOTION_BASE_URL}/databases/{db_id}/query"
 
-    logger.info("Querying database to retrieve all existing trends...")
+    logger.info("Querying %s database to retrieve all active pages...", db_name)
 
     while has_more:
         payload = {"page_size": 100}
@@ -61,7 +61,7 @@ def fetch_all_page_ids() -> list[str]:
             logger.error("HTTP request error during query: %s", e)
             break
 
-    logger.info("Found %d active pages in the Trending Topics database.", len(page_ids))
+    logger.info("Found %d active pages in the %s database.", len(page_ids), db_name)
     return page_ids
 
 
@@ -88,20 +88,20 @@ def archive_page(page_id: str) -> bool:
         return False
 
 
-def clear_trending_db():
-    """Archive all pages in the configured Notion Trending Topics database."""
-    if not NOTION_API_KEY or not NOTION_TRENDING_DB_ID:
-        logger.error("Notion credentials or Database ID missing from environment. Aborting.")
+def clear_database(db_id: str, db_name: str):
+    """Archive all pages inside a specified database."""
+    if not db_id:
+        logger.warning("Database ID not configured for %s. Skipping.", db_name)
         return
 
-    logger.info("━━━ Starting Purge of Notion database ━━━")
+    logger.info("━━━ Starting Purge of %s ━━━", db_name)
     
-    page_ids = fetch_all_page_ids()
+    page_ids = fetch_all_page_ids(db_id, db_name)
     if not page_ids:
-        logger.info("No pages found. The database is already empty!")
+        logger.info("No pages found. The %s database is already empty!", db_name)
         return
 
-    logger.info("Purging/Archiving %d pages (this may take a minute to stay rate-limit safe)...", len(page_ids))
+    logger.info("Purging/Archiving %d pages in %s...", len(page_ids), db_name)
     
     archived_count = 0
     for idx, pid in enumerate(page_ids):
@@ -114,8 +114,18 @@ def clear_trending_db():
         # Enforce rate limiting (~3 requests/second)
         time.sleep(0.35)
 
-    logger.info("━━━ Purge complete! Successfully archived %d/%d pages. ━━━", archived_count, len(page_ids))
+    logger.info("━━━ Purge complete! Successfully archived %d/%d pages from %s. ━━━", archived_count, len(page_ids), db_name)
+
+
+def clear_all():
+    """Clear both Trending Topics and Content Pipeline databases to start completely fresh."""
+    if not NOTION_API_KEY:
+        logger.error("NOTION_API_KEY is missing. Aborting.")
+        return
+
+    clear_database(NOTION_TRENDING_DB_ID, "Trending Topics")
+    clear_database(NOTION_PIPELINE_DB_ID, "Content Pipeline")
 
 
 if __name__ == "__main__":
-    clear_trending_db()
+    clear_all()

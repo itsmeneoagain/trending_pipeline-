@@ -15,11 +15,24 @@ YOUTUBE_API_KEY: str = os.getenv("YOUTUBE_API_KEY", "")
 YOUTUBE_REGION_CODE: str = os.getenv("YOUTUBE_REGION_CODE", "IN")
 YOUTUBE_CATEGORY_ID: str = os.getenv("YOUTUBE_CATEGORY_ID", "20")  # Gaming
 
-# Channel IDs to track (comma-separated in env, parsed to list)
-_creator_ids_raw: str = os.getenv("CREATOR_CHANNEL_IDS", "")
-CREATOR_CHANNEL_IDS: list[str] = [
-    cid.strip() for cid in _creator_ids_raw.split(",") if cid.strip()
-]
+# Channel IDs to track (dynamically loaded from creators.json, falls back to env)
+import json
+CREATOR_CHANNEL_IDS: list[str] = []
+_creators_path = os.path.join(os.path.dirname(__file__), "..", "creators.json")
+if os.path.exists(_creators_path):
+    try:
+        with open(_creators_path, "r", encoding="utf-8") as _cf:
+            _cdata = json.load(_cf)
+            CREATOR_CHANNEL_IDS = [cid.strip() for cid in _cdata.get("youtube", []) if cid.strip()]
+    except Exception as _ce:
+        pass
+
+if not CREATOR_CHANNEL_IDS:
+    _creator_ids_raw: str = os.getenv("CREATOR_CHANNEL_IDS", "")
+    CREATOR_CHANNEL_IDS = [
+        cid.strip() for cid in _creator_ids_raw.split(",") if cid.strip()
+    ]
+
 
 # ── Reddit (PRAW) ───────────────────────────────────────────────────
 REDDIT_CLIENT_ID: str = os.getenv("REDDIT_CLIENT_ID", "")

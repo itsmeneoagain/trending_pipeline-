@@ -176,7 +176,99 @@ def api_get_status():
     return jsonify({"is_scraping": _is_scraping})
 
 
+# ── Dynamic Creator Config API ───────────────────────────────────────
+
+@app.route("/api/creators", methods=["GET"])
+def api_get_creators():
+    """Retrieve the list of dynamic YouTube and Instagram competitor handles."""
+    import json
+    root_dir = os.path.join(os.path.dirname(__file__), '..')
+    path = os.path.join(root_dir, 'creators.json')
+    if not os.path.exists(path):
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump({"youtube": [], "instagram": []}, f)
+            
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/creators/add", methods=["POST"])
+def api_add_creator():
+    """Add a tracked competitor creator (youtube or instagram) handle/ID."""
+    import json
+    data = request.get_json() or {}
+    platform = data.get("platform", "").strip().lower()  # 'youtube' or 'instagram'
+    handle = data.get("handle", "").strip()
+
+    if platform not in ["youtube", "instagram"] or not handle:
+        return jsonify({"error": "platform (youtube/instagram) and handle are required"}), 400
+
+    root_dir = os.path.join(os.path.dirname(__file__), '..')
+    path = os.path.join(root_dir, 'creators.json')
+    
+    try:
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                creators = json.load(f)
+        else:
+            creators = {"youtube": [], "instagram": []}
+
+        if platform not in creators:
+            creators[platform] = []
+
+        if handle not in creators[platform]:
+            creators[platform].append(handle)
+
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(creators, f, ensure_ascii=False, indent=2)
+
+        logger.info("API: Added %s creator: '%s'", platform, handle)
+        return jsonify({"status": "success", "creators": creators})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/creators/delete", methods=["POST"])
+def api_delete_creator():
+    """Delete a tracked competitor creator handle/ID."""
+    import json
+    data = request.get_json() or {}
+    platform = data.get("platform", "").strip().lower()
+    handle = data.get("handle", "").strip()
+
+    if platform not in ["youtube", "instagram"] or not handle:
+        return jsonify({"error": "platform and handle are required"}), 400
+
+    root_dir = os.path.join(os.path.dirname(__file__), '..')
+    path = os.path.join(root_dir, 'creators.json')
+
+    try:
+        if not os.path.exists(path):
+            return jsonify({"error": "No creators configured"}), 404
+
+        with open(path, 'r', encoding='utf-8') as f:
+            creators = json.load(f)
+
+        if platform in creators and handle in creators[platform]:
+            creators[platform].remove(handle)
+
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(creators, f, ensure_ascii=False, indent=2)
+
+            logger.info("API: Deleted %s creator: '%s'", platform, handle)
+            return jsonify({"status": "success", "creators": creators})
+        
+        return jsonify({"error": "Creator not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # ── Server Boot ──────────────────────────────────────────────────────
+
 
 def run_server():
     """Start the server and print easy-to-use access guides."""

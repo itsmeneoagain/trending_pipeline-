@@ -78,10 +78,10 @@ Please output the following two fields:
 2. "angle": A highly engaging, creative Hinglish content angle / video hook idea for a 60-second video (Shorts/Reels) exactly matching our profile. Write in our casual, direct-to-camera voice. Provide the specific hook and angle idea (max 40 words).
 
 Respond with ONLY a valid JSON object matching this schema:
-{
+{{
   "why": "why it is trending",
   "angle": "creative Hinglish hook and content angle matching our positioning"
-}"""
+}}"""
 
     # Attempt 1: Gemini with Google Search grounding enabled
     try:
