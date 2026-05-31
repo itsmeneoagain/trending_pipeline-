@@ -181,7 +181,7 @@ def api_get_status():
 def run_server():
     """Start the server and print easy-to-use access guides."""
     local_ip = get_local_ip()
-    port = 8080
+    port = int(os.getenv("PORT", "8080"))
 
     logger.info("=========================================================")
     logger.info("🎮 CUSTOM DASHBOARD SERVER RUNNING 🎮")
