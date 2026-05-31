@@ -281,6 +281,41 @@
   #toast.err{border-color:var(--hot);color:#ffb9c5}
   .footnote{text-align:center;color:var(--faint);font-size:11.5px;margin-top:20px;line-height:1.6}
   .footnote b{color:var(--muted)}
+
+  /* ---------- topic pulse ---------- */
+  .pulse-section{
+    background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);
+    padding:14px 18px 16px;margin-bottom:18px;
+  }
+  .pulse-head{
+    display:flex;align-items:center;gap:12px;margin-bottom:12px;
+  }
+  .pulse-title{
+    font-family:var(--display);font-size:13px;font-weight:700;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--text);
+  }
+  .pulse-sub{font-size:11.5px;color:var(--muted)}
+  .pulse-grid{display:flex;flex-wrap:wrap;gap:7px}
+  .pulse-chip{
+    font-family:var(--display);font-size:11px;letter-spacing:.04em;font-weight:600;
+    padding:5px 11px;border-radius:999px;border:1px solid var(--line);color:var(--muted);
+    background:rgba(255,255,255,.015);display:inline-flex;align-items:center;gap:5px;
+    cursor:default;transition:.15s;white-space:nowrap;
+  }
+  .pulse-chip.heat-hot{
+    border-color:rgba(255,77,109,.4);color:var(--hot);background:rgba(255,77,109,.07);
+  }
+  .pulse-chip.heat-warm{
+    border-color:rgba(255,176,32,.35);color:var(--amber);background:rgba(255,176,32,.05);
+  }
+  .pulse-chip.heat-cool{
+    border-color:rgba(106,168,255,.3);color:var(--cool);background:rgba(106,168,255,.05);
+  }
+  .pulse-chip .chip-count{font-size:9.5px;opacity:.7}
+  .pulse-bar{
+    display:flex;gap:4px;align-items:center;margin-left:5px;
+  }
+  .pulse-dot{width:5px;height:5px;border-radius:50%;flex:none}
 </style>
 </head>
 <body>
@@ -327,6 +362,17 @@
           <div class="creator-list" id="igCreatorList"></div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- TOPIC PULSE SECTION -->
+  <section class="pulse-section">
+    <div class="pulse-head">
+      <span class="pulse-title">🌡 Topic Pulse</span>
+      <span class="pulse-sub">What's dominating this scan cycle — topic occurrence meter</span>
+    </div>
+    <div class="pulse-grid" id="pulseGrid">
+      <div style="color:var(--faint);font-size:12px">Loading…</div>
     </div>
   </section>
 
@@ -570,6 +616,7 @@
       card.style.animationDelay = (i*0.03)+"s";
       var tierLabel = tier===1?"T1 · Hidden gem":tier===2?"T2 · High-volume":"T3 · List / news";
       var urgentTag = t.urgent ? '<span class="tag urgent"><span class="dot" style="background:var(--hot)"></span>TIME-SENSITIVE</span>' : '';
+      var displayAngle = isGenericAngle(t.angle) ? generateSmartAngle(t.title, t.source, tier) : t.angle;
       card.innerHTML =
         '<div class="tcard-top"><h3>'+esc(t.title)+'</h3></div>'+
         '<div class="tags">'+
@@ -578,7 +625,7 @@
           '<span class="tag">'+satLabel(t.saturation)+'</span>'+
           urgentTag+
         '</div>'+
-        '<div class="angle">'+esc(t.angle||"")+'</div>'+
+        '<div class="angle">'+esc(displayAngle)+'</div>'+
         (t.why?'<div class="why">↳ '+esc(t.why)+'</div>':'')+
         '<div class="tcard-foot"><button class="add-btn">+ Add to pipeline</button></div>';
       var btn = card.querySelector(".add-btn");
@@ -787,6 +834,7 @@
           Promise.all([loadTrends(), loadPipeline()]).then(function(){
             renderTrends();
             renderPipeline();
+            renderTopicPulse();
             toast("Trends refreshed live ✓");
           });
         }
@@ -933,6 +981,120 @@
     if(h) { addCreator("instagram", h); igCreatorInput.value = ""; }
   });
 
+  // ---------- topic pulse ----------
+  var TOPIC_PATTERNS = [
+    {id:"gta",       label:"GTA",            kw:["gta","grand theft auto","los santos","shinchan","franklin","trevor"]},
+    {id:"minecraft", label:"Minecraft",       kw:["minecraft","doorbin"]},
+    {id:"freefire",  label:"Free Fire",       kw:["free fire","freefire","ff rank","ff live"]},
+    {id:"bgmi",      label:"BGMI/PUBG",       kw:["bgmi","battlegrounds mobile","pubg","battlegrounds"]},
+    {id:"roblox",    label:"Roblox",          kw:["roblox","lilyville"]},
+    {id:"pokemon",   label:"Pokémon",         kw:["pokemon","pokémon","pokemons","catch mobs as pokemon"]},
+    {id:"witcher",   label:"Witcher",         kw:["witcher","geralt","blood and wine"]},
+    {id:"cod",       label:"Call of Duty",    kw:["call of duty","black ops","warzone","cod "]},
+    {id:"spiderman", label:"Spider-Man",      kw:["spider-man","spider man","spiderman"]},
+    {id:"zelda",     label:"Zelda",           kw:["zelda","tears of the kingdom","breath of the wild"]},
+    {id:"hades",     label:"Hades",           kw:["hades","supergiant"]},
+    {id:"sgf",       label:"Summer Game Fest",kw:["summer game fest","game fest","state of play","showcase","sge ","sgf "]},
+    {id:"indie",     label:"Indie Games",     kw:["indie","my game","our game","demo release","working on a game","making a game","small team","solo dev","roguelike","tower defense"]},
+    {id:"horror",    label:"Horror",          kw:["horror","scary","granny","jumpscare","silent hill","ice scream","resident evil","psychological horror"]},
+    {id:"nintendo",  label:"Nintendo",        kw:["nintendo","switch 2","ns2","tomodachi","splatoon","mario"]},
+    {id:"steam",     label:"Steam/PC",        kw:["steam","valve","pc game discount","pc games"]},
+    {id:"ps5",       label:"PlayStation",     kw:["ps5","playstation","sony","psn"]},
+    {id:"xbox",      label:"Xbox",            kw:["xbox","microsoft","game pass"]},
+    {id:"retro",     label:"Retro/Classic",   kw:["retro","classic","nostalgia","gameboy","90s","80s","old school","anniversary","years ago","remember","flash games"]},
+    {id:"esports",   label:"Esports",         kw:["bmps","rank push","conqueror","grandmaster","world record","tournament","ranked"]},
+    {id:"stardew",   label:"Stardew Valley",  kw:["stardew"]},
+    {id:"nba",       label:"NBA/Sports",      kw:["nba","basketball","sports game","nba street","nba run"]},
+    {id:"wolverine", label:"Marvel Games",    kw:["wolverine","marvel","avengers","x-men"]},
+    {id:"vr",        label:"VR Games",        kw:["vr","virtual reality"," vr "]},
+  ];
+
+  function buildTopicPulse(trendsData) {
+    var clusters = {};
+    trendsData.forEach(function(t) {
+      var low = (t.title || "").toLowerCase();
+      var heat = (t.heat || "warm").toLowerCase();
+      TOPIC_PATTERNS.forEach(function(p) {
+        if (p.kw.some(function(kw){ return low.indexOf(kw) !== -1; })) {
+          if (!clusters[p.id]) clusters[p.id] = {label:p.label, count:0, hot:0, warm:0, cool:0};
+          clusters[p.id].count++;
+          if (clusters[p.id][heat] !== undefined) clusters[p.id][heat]++;
+        }
+      });
+    });
+    return Object.values(clusters)
+      .filter(function(c){ return c.count > 0; })
+      .sort(function(a, b) {
+        var hA = a.hot > 0 ? 2 : (a.warm > 0 ? 1 : 0);
+        var hB = b.hot > 0 ? 2 : (b.warm > 0 ? 1 : 0);
+        return hB !== hA ? hB - hA : b.count - a.count;
+      });
+  }
+
+  function renderTopicPulse() {
+    var grid = $("pulseGrid");
+    if (!grid) return;
+    var clusters = buildTopicPulse(trends);
+    if (!clusters.length) {
+      grid.innerHTML = '<span style="color:var(--faint);font-size:12px">No topics detected — run a refresh to load live data.</span>';
+      return;
+    }
+    grid.innerHTML = "";
+    clusters.forEach(function(c) {
+      var dom = c.hot > 0 ? "hot" : (c.warm > 0 ? "warm" : "cool");
+      var emoji = dom === "hot" ? "🔥" : (dom === "warm" ? "🌤" : "❄️");
+      var chip = document.createElement("div");
+      chip.className = "pulse-chip heat-" + dom;
+      var bar = "";
+      if (c.hot)  bar += '<span class="pulse-dot" style="background:var(--hot)" title="'+c.hot+' hot"></span>';
+      if (c.warm) bar += '<span class="pulse-dot" style="background:var(--amber)" title="'+c.warm+' warm"></span>';
+      if (c.cool) bar += '<span class="pulse-dot" style="background:var(--cool)" title="'+c.cool+' cool"></span>';
+      chip.innerHTML = emoji + ' ' + esc(c.label) +
+        '<span class="chip-count">×' + c.count + '</span>' +
+        (bar ? '<span class="pulse-bar">' + bar + '</span>' : '');
+      chip.title = c.hot + ' hot · ' + c.warm + ' warm · ' + c.cool + ' cool';
+      grid.appendChild(chip);
+    });
+  }
+
+  // ---------- smart angle generation (client-side fallback for cached generic text) ----------
+  function isGenericAngle(angle) {
+    if (!angle) return true;
+    if (angle.indexOf("Create a Short/Reel covering the latest buzz") === 0) return true;
+    if (angle.indexOf("Short/Reel covering") === 0) return true;
+    if (angle.indexOf("AI Curation skipped") === 0) return true;
+    if (angle === "—") return true;
+    return false;
+  }
+
+  function generateSmartAngle(title, source, tier) {
+    var t = (title || "").toLowerCase();
+    var sh = title.length > 55 ? title.slice(0,55) + "…" : title;
+
+    var storyGames = ["tekken","mortal kombat","resident evil","witcher","god of war","red dead",
+      "cyberpunk","final fantasy","dark souls","elden ring","zelda","halo","mass effect",
+      "batman","spider-man","max payne","street fighter","metal gear","silent hill","gta"];
+    var hasStoryGame = storyGames.some(function(g){ return t.indexOf(g) !== -1; });
+
+    if (/easter egg|hidden|secret|reference|cameo|saddest/i.test(t))
+      return "'Yeh kisi ne notice kiya kya?' — pop culture tie-in ya hidden detail. 'Kya tumne dekha?' hook, zero Hinglish coverage.";
+    if (hasStoryGame && /story|lore|history|part|chapter|origin/i.test(t))
+      return "'" + sh + "' ki puri kahani ek Reel mein — cinematic mystery hook. 'Yeh game itna dark kyun hai?' opener. No Hinglish coverage.";
+    if (/history|what happened|how did|why did|origin|rise of|fall of|retro|classic|nostalgia|anniversary/i.test(t))
+      return "'Yeh kab hua aur kyun?' gaming history explainer — cinematic storytelling, direct-to-camera. Pure open lane.";
+    if (/million copies|lawsuit|layoffs|shut down|acquired|controversy|apolog|drama|backlash/i.test(t))
+      return "Industry drama ka oblique angle — player impact aur Indian pricing focus. Never the obvious headline.";
+    if (tier === 1 || /indie|solo dev|my game|our game|demo release|wishlist|working on/i.test(t))
+      return "Hidden gem intro: '" + sh + "' — zero Hinglish coverage. Hook: 'Koi nahi jaanta yeh game exist karta hai — aur yeh galti hai.'";
+    if (/leaked|reportedly|confirmed|trailer|reveal|announcement|rated in/i.test(t))
+      return "Fast 30-sec breaking news Short — 'reportedly' frame, first-mover advantage. Publish before competition.";
+    if (/co-op|multiplayer|best games|top games|games like|recommend|horror games/i.test(t))
+      return "Tier 3 list — Indian context add karo: pricing, availability, PC/mobile support. 'Indian gamers ke liye best options.'";
+    if (source && source.indexOf("reddit") !== -1)
+      return "Reddit trending but zero Hinglish coverage — T1 discovery angle. 'Yeh chhupa hua gem' hook. Channel ka core lane.";
+    return "'" + sh + "' — strategy check: T1 gem, oblique T2 angle, ya developer story? 30-sec Hinglish hook draft karo.";
+  }
+
   // ---------- utils ----------
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
@@ -950,6 +1112,7 @@
   Promise.all([loadTrends(), loadPipeline()]).then(function(){
     renderTrends();
     renderPipeline();
+    renderTopicPulse();
     loadCreators();
   });
 })();
