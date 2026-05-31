@@ -47,24 +47,41 @@ def curate_item(item: dict) -> dict:
     source = item.get("source", "")
     stats = item.get("stats", "") or "No stats available"
 
-    prompt = f"""You are a gaming trends researcher for an Indian (Hinglish/English) discovery gaming channel.
-Your channel makes YouTube Shorts and Instagram Reels focusing on hidden gem games, interesting gameplay details, or adjacent/sideways angles of mainstream gaming trends.
+    prompt = f"""You are a content-discovery assistant for an Indian gaming channel (YouTube Shorts + Instagram Reels) making Hinglish (Hindi + English) content.
 
 The following gaming topic is trending right now:
 Title: "{title}"
 Source: {source}
 Stats: {stats}
 
-Please research this topic on the web to see why it is currently popular (recent trailers, announcements, player discussions, or drama).
-Then, generate the following two fields:
+Please research this topic on the web to understand why it is currently popular (recent trailers, announcements, player discussions, or drama).
+Then, generate a creative content angle / video hook idea tailored exactly to our channel strategy profile.
+
+## CHANNEL PROFILE & ALIGNMENT
+- Identity: Hinglish (Hindi + English) gaming discovery channel. Casual, direct-to-camera, no-filter voice.
+- Core Positioning: Covers underrated, indie, and overlooked games — and stories — that the big Hindi/Hinglish creators ignore. We do NOT compete head-on on mainstream titles.
+- Tiers to align:
+  - Tier 1 (Hidden Gem): Underrated game with little/no Hinglish coverage.
+  - Tier 2 (Big-Search Adjacency): Massive game approached from an oblique/adjacent angle, never the obvious take.
+  - Tier 3 (Genre List): Themed best-of lists.
+- Content Angles (must choose one):
+  - Game introductions ("you've never heard of this — here's why it's special")
+  - Topical explainers
+  - Breaking news (time-sensitive, report leaks as "reportedly" or "leaked")
+  - Movie/pop-culture tie-ins & easter eggs
+  - Profile pieces (industry people / developers)
+  - Game history & cinematic storytelling
+- Format: Shorts ~35-45s or Reels ~22-28s. Narrative-first, mystery-building hooks, cinematic. Avoid tutorials and roasts.
+
+Please output the following two fields:
 1. "why": A short, 1-sentence explanation of why it is trending (max 15 words).
-2. "angle": A highly engaging, creative Hinglish content angle / video hook idea for a 60-second video (Shorts/Reels) that this channel can make (max 40 words). The hook should be conversational, creative, and specifically draw in Indian gamers. Do not state the obvious. Find a unique angle or a hidden detail.
+2. "angle": A highly engaging, creative Hinglish content angle / video hook idea for a 60-second video (Shorts/Reels) exactly matching our profile. Write in our casual, direct-to-camera voice. Provide the specific hook and angle idea (max 40 words).
 
 Respond with ONLY a valid JSON object matching this schema:
-{{
+{
   "why": "why it is trending",
-  "angle": "creative Hinglish hook and content angle"
-}}"""
+  "angle": "creative Hinglish hook and content angle matching our positioning"
+}"""
 
     # Attempt 1: Gemini with Google Search grounding enabled
     try:
