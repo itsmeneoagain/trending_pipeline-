@@ -312,6 +312,15 @@
 
   var logger = console;
 
+  // Dynamically route API and JSON cache requests.
+  // If hosted on GitHub Pages or locally via file://, route backend requests to the local Flask server.
+  var API_BASE = "";
+  if (window.location.hostname !== "localhost" && 
+      window.location.hostname !== "127.0.0.1" && 
+      window.location.hostname !== "content-pipeline.neo") {
+    API_BASE = "http://localhost:8080/";
+  }
+
 
   // ---------- seed data (live as of May 31, 2026) ----------
   var SEED = [
@@ -368,7 +377,7 @@
   // ---------- storage helpers (persist across sessions) ----------
   function loadTrends(){
     // First, try to fetch the live Notion-synced JSON file
-    return fetch("trends.json")
+    return fetch(API_BASE + "trends.json")
       .then(function(res){
         if(!res.ok) throw new Error("File not found");
         return res.json();
@@ -397,7 +406,7 @@
   }
   function loadPipeline(){
     // First, try to fetch the live Notion-synced JSON file
-    return fetch("pipeline.json")
+    return fetch(API_BASE + "pipeline.json")
       .then(function(res){
         if(!res.ok) throw new Error("File not found");
         return res.json();
@@ -496,7 +505,7 @@
   // ---------- pipeline ----------
   function addToPipeline(data, trendTitle, btnElement){
     toast("Moving to pipeline...");
-    fetch("api/pipeline/add", {
+    fetch(API_BASE + "api/pipeline/add", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
@@ -564,7 +573,7 @@
         '</div>';
       card.querySelector(".del").addEventListener("click", function(){
         toast("Deleting from Notion...");
-        fetch("api/pipeline/delete", {
+        fetch(API_BASE + "api/pipeline/delete", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify({ page_id: p.id })
@@ -585,7 +594,7 @@
         var i = STATUSES.indexOf(p.status);
         var nextStatus = STATUSES[(i+1)%STATUSES.length];
         toast("Updating Notion...");
-        fetch("api/pipeline/update-status", {
+        fetch(API_BASE + "api/pipeline/update-status", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify({ page_id: p.id, status: nextStatus })
@@ -647,7 +656,7 @@
   var statusInterval;
 
   function pollRefreshStatus(){
-    fetch("api/status")
+    fetch(API_BASE + "api/status")
       .then(function(res){ return res.json(); })
       .then(function(data){
         if(!data.is_scraping){
@@ -670,7 +679,7 @@
     setRefreshing(true);
     toast("Starting live background scrape...");
     
-    fetch("api/refresh", { method: "POST" })
+    fetch(API_BASE + "api/refresh", { method: "POST" })
       .then(function(res){ return res.json(); })
       .then(function(data){
         toast("Scraping YouTube & Reddit RSS...");
