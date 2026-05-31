@@ -1,0 +1,13 @@
+# Core dependencies
+requests>=2.31.0
+python-dotenv>=1.0.0
+google-api-python-client>=2.100.0
+google-genai>=1.0.0
+flask>=3.0.0
+flask-cors>=4.0.0
+
+# Optional: Reddit API fallback (only if you have approved API credentials)
+# RSS feeds are used by default and require no API key.
+# Uncomment the line below if you have Reddit API access approved.
+# praw>=7.7.0
+

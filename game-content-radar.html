@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game Content Radar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0d14;
+    --panel:#11161f;
+    --panel-2:#161c28;
+    --line:#222a39;
+    --line-soft:#1a2230;
+    --text:#e9edf6;
+    --muted:#8893a8;
+    --faint:#5b6678;
+    --lime:#b8ff2e;
+    --cyan:#36d0ff;
+    --amber:#ffb020;
+    --hot:#ff4d6d;
+    --cool:#6aa8ff;
+    --radius:14px;
+    --display:'Chakra Petch', ui-sans-serif, system-ui, sans-serif;
+    --body:'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--body);
+    color:var(--text);
+    background:
+      radial-gradient(900px 600px at 85% -10%, rgba(54,208,255,.10), transparent 60%),
+      radial-gradient(800px 500px at 5% 0%, rgba(184,255,46,.08), transparent 55%),
+      var(--bg);
+    background-attachment:fixed;
+    min-height:100vh;
+    padding:22px 18px 60px;
+    line-height:1.5;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
+                     linear-gradient(90deg, rgba(255,255,255,.018) 1px,transparent 1px);
+    background-size:46px 46px;
+    mask-image:radial-gradient(1200px 800px at 50% 0%, #000 30%, transparent 80%);
+  }
+  .wrap{max-width:1180px;margin:0 auto;position:relative;z-index:1}
+
+  /* ---------- header ---------- */
+  header{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    gap:18px;flex-wrap:wrap;margin-bottom:22px;
+    padding-bottom:18px;border-bottom:1px solid var(--line-soft);
+  }
+  .brand{display:flex;align-items:center;gap:13px}
+  .pulse{
+    width:13px;height:13px;border-radius:50%;background:var(--lime);
+    box-shadow:0 0 0 0 rgba(184,255,46,.55);animation:pulse 2.1s infinite;flex:none;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(184,255,46,.5)}
+    70%{box-shadow:0 0 0 11px rgba(184,255,46,0)}
+    100%{box-shadow:0 0 0 0 rgba(184,255,46,0)}
+  }
+  .brand h1{
+    font-family:var(--display);font-weight:700;font-size:25px;letter-spacing:.04em;
+    text-transform:uppercase;line-height:1;
+  }
+  .brand h1 span{color:var(--lime)}
+  .brand p{font-size:12.5px;color:var(--muted);margin-top:5px;letter-spacing:.01em}
+  .chips-top{display:flex;gap:9px;flex-wrap:wrap}
+  .stat-chip{
+    font-family:var(--display);font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;
+    padding:8px 13px;border:1px solid var(--line);border-radius:999px;color:var(--muted);
+    background:rgba(255,255,255,.015);display:flex;align-items:center;gap:7px;white-space:nowrap;
+  }
+  .stat-chip b{color:var(--text);font-weight:700}
+  .stat-chip.live b{color:var(--lime)}
+  .dot{width:7px;height:7px;border-radius:50%;flex:none}
+
+  /* ---------- layout ---------- */
+  .grid{display:grid;grid-template-columns:1fr 380px;gap:18px;align-items:start}
+  @media (max-width:900px){ .grid{grid-template-columns:1fr} }
+
+  .panel{
+    background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .panel-head{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:16px 18px;border-bottom:1px solid var(--line-soft);
+    background:linear-gradient(180deg, rgba(255,255,255,.02), transparent);
+  }
+  .panel-head h2{
+    font-family:var(--display);font-size:15px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+    display:flex;align-items:center;gap:9px;
+  }
+  .panel-head h2 .ic{font-size:15px}
+  .head-actions{display:flex;gap:8px;align-items:center}
+
+  /* buttons */
+  button{font-family:var(--body);cursor:pointer;border:none;background:none;color:inherit}
+  .btn{
+    font-family:var(--display);font-size:12px;letter-spacing:.04em;text-transform:uppercase;font-weight:600;
+    padding:8px 13px;border-radius:9px;border:1px solid var(--line);color:var(--text);
+    background:rgba(255,255,255,.02);transition:.16s;display:inline-flex;align-items:center;gap:7px;
+  }
+  .btn:hover{border-color:#33405a;background:rgba(255,255,255,.05)}
+  .btn-primary{
+    background:var(--lime);color:#0a0d14;border-color:var(--lime);font-weight:700;
+  }
+  .btn-primary:hover{background:#c8ff52;border-color:#c8ff52}
+  .btn-primary:disabled{opacity:.55;cursor:wait}
+  .btn-ghost{border-color:transparent;color:var(--faint);padding:8px 9px}
+  .btn-ghost:hover{color:var(--text);background:rgba(255,255,255,.04)}
+  .spin{width:13px;height:13px;border:2px solid rgba(10,13,20,.35);border-top-color:#0a0d14;border-radius:50%;animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* filter chips */
+  .filters{display:flex;gap:8px;flex-wrap:wrap;padding:14px 18px 4px}
+  .fchip{
+    font-family:var(--display);font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;font-weight:500;
+    padding:7px 12px;border-radius:999px;border:1px solid var(--line);color:var(--muted);
+    background:transparent;transition:.15s;
+  }
+  .fchip:hover{color:var(--text);border-color:#33405a}
+  .fchip.active{background:var(--text);color:#0a0d14;border-color:var(--text);font-weight:700}
+  .fchip.active.t1{background:var(--lime);border-color:var(--lime)}
+  .fchip.active.t2{background:var(--cyan);border-color:var(--cyan)}
+  .fchip.active.t3{background:var(--amber);border-color:var(--amber)}
+  .fchip.active.urg{background:var(--hot);border-color:var(--hot);color:#fff}
+
+  /* trend cards */
+  .list{padding:14px 18px 18px;display:flex;flex-direction:column;gap:11px}
+  .tcard{
+    position:relative;border:1px solid var(--line-soft);border-radius:12px;
+    background:var(--panel-2);padding:15px 16px 15px 18px;overflow:hidden;
+    transition:.18s;animation:rise .4s ease both;
+  }
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .tcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent,var(--muted))}
+  .tcard:hover{border-color:#2c374b;transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.28)}
+  .tcard.t1{--accent:var(--lime)}
+  .tcard.t2{--accent:var(--cyan)}
+  .tcard.t3{--accent:var(--amber)}
+  .tcard-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+  .tcard h3{font-size:15.5px;font-weight:600;letter-spacing:-.01em;line-height:1.25}
+  .tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+  .tag{
+    font-family:var(--display);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;
+    padding:4px 9px;border-radius:6px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+    border:1px solid var(--line);color:var(--muted);
+  }
+  .tag .dot{width:6px;height:6px}
+  .tag.tier{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%, transparent)}
+  .tag.urgent{color:var(--hot);border-color:rgba(255,77,109,.4);background:rgba(255,77,109,.07)}
+  .heat-hot{color:var(--hot)} .heat-warm{color:var(--amber)} .heat-cool{color:var(--cool)}
+  .angle{font-size:13.5px;color:#c4ccdb;margin-top:11px;padding-left:12px;border-left:2px solid var(--line)}
+  .why{font-size:12px;color:var(--faint);margin-top:8px}
+  .tcard-foot{display:flex;justify-content:flex-end;margin-top:12px}
+  .add-btn{
+    font-family:var(--display);font-size:11.5px;letter-spacing:.03em;text-transform:uppercase;font-weight:600;
+    padding:7px 12px;border-radius:8px;border:1px solid color-mix(in srgb,var(--accent) 40%, transparent);
+    color:var(--accent);background:color-mix(in srgb,var(--accent) 9%, transparent);transition:.15s;
+  }
+  .add-btn:hover{background:color-mix(in srgb,var(--accent) 18%, transparent)}
+  .add-btn.added{color:var(--faint);border-color:var(--line);background:transparent;cursor:default}
+
+  /* pipeline */
+  .pl-stats{display:flex;gap:6px}
+  .pl-stat{font-family:var(--display);font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px}
+  .pl-stat b{color:var(--text);font-weight:700}
+
+  .addform{padding:15px 18px;border-bottom:1px solid var(--line-soft);display:flex;flex-direction:column;gap:10px}
+  .addform input, .addform textarea, .addform select{
+    width:100%;font-family:var(--body);font-size:13.5px;color:var(--text);
+    background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:10px 12px;transition:.15s;
+  }
+  .addform input::placeholder,.addform textarea::placeholder{color:var(--faint)}
+  .addform input:focus,.addform textarea:focus,.addform select:focus{outline:none;border-color:var(--lime)}
+  .addform textarea{resize:vertical;min-height:42px}
+  .sel-row{display:flex;gap:8px}
+  .sel-row select{flex:1;cursor:pointer;appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238893a8'><path d='M2 4l4 4 4-4'/></svg>");
+    background-repeat:no-repeat;background-position:right 11px center;padding-right:28px}
+
+  .pl-list{padding:12px 18px 18px;display:flex;flex-direction:column;gap:10px}
+  .empty{text-align:center;color:var(--faint);font-size:13px;padding:34px 16px;line-height:1.6}
+  .empty .big{font-family:var(--display);font-size:30px;color:var(--line);margin-bottom:8px}
+
+  .pcard{
+    border:1px solid var(--line-soft);border-radius:11px;background:var(--panel-2);
+    padding:12px 13px;display:flex;flex-direction:column;gap:9px;animation:rise .35s ease both;
+  }
+  .pcard-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+  .pcard h4{font-size:14px;font-weight:600;line-height:1.3}
+  .pcard .del{color:var(--faint);font-size:17px;line-height:1;padding:2px 5px;border-radius:6px;flex:none}
+  .pcard .del:hover{color:var(--hot);background:rgba(255,77,109,.1)}
+  .pcard .pnote{font-size:12px;color:var(--muted);line-height:1.45}
+  .pcard-tags{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .ptag{font-family:var(--display);font-size:10px;letter-spacing:.04em;text-transform:uppercase;font-weight:600;
+    padding:3px 8px;border-radius:5px;border:1px solid var(--line);color:var(--muted)}
+  .ptag.tier1{color:var(--lime);border-color:rgba(184,255,46,.35)}
+  .ptag.tier2{color:var(--cyan);border-color:rgba(54,208,255,.35)}
+  .ptag.tier3{color:var(--amber);border-color:rgba(255,176,32,.35)}
+  .status-btn{
+    font-family:var(--display);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;
+    padding:4px 10px;border-radius:999px;border:1px solid var(--accent,var(--muted));
+    color:var(--accent,var(--muted));background:color-mix(in srgb,var(--accent) 10%, transparent);
+    cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px;
+  }
+  .status-btn:hover{background:color-mix(in srgb,var(--accent) 22%, transparent)}
+  .status-btn .dot{width:6px;height:6px}
+  .st-idea{--accent:var(--faint)} .st-scripting{--accent:var(--amber)}
+  .st-filming{--accent:var(--cyan)} .st-posted{--accent:var(--lime)}
+
+  /* toast */
+  #toast{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+    background:#161c28;border:1px solid var(--line);color:var(--text);
+    font-family:var(--display);font-size:12.5px;letter-spacing:.03em;
+    padding:11px 18px;border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.4);
+    opacity:0;pointer-events:none;transition:.25s;z-index:50;display:flex;align-items:center;gap:9px;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.err{border-color:var(--hot);color:#ffb9c5}
+  .footnote{text-align:center;color:var(--faint);font-size:11.5px;margin-top:20px;line-height:1.6}
+  .footnote b{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="pulse"></div>
+      <div>
+        <h1>Game Content <span>Radar</span></h1>
+        <p>Discovery-channel command deck — what's trending vs. what to actually make.</p>
+      </div>
+    </div>
+    <div class="chips-top">
+      <div class="stat-chip" id="dateChip">—</div>
+      <div class="stat-chip" id="sgfChip" style="display:none"></div>
+      <div class="stat-chip live"><span class="dot" style="background:var(--lime)"></span><b id="queueCount">0</b>&nbsp;queued</div>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- TRENDING -->
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="ic">📡</span> Trending now</h2>
+        <div class="head-actions">
+          <button class="btn-ghost btn" id="resetTrends" title="Reset to today's seed list">↺ reset</button>
+          <button class="btn btn-primary" id="refreshBtn"><span id="refreshLabel">⟳ Live refresh</span></button>
+        </div>
+      </div>
+      <div class="filters" id="filters">
+        <button class="fchip active" data-f="all">All</button>
+        <button class="fchip t1" data-f="1">T1 · Hidden gems</button>
+        <button class="fchip t2" data-f="2">T2 · High-volume</button>
+        <button class="fchip t3" data-f="3">T3 · Lists / news</button>
+        <button class="fchip urg" data-f="urgent">⏱ Time-sensitive</button>
+      </div>
+      <div class="list" id="trendList"></div>
+    </section>
+
+    <!-- PIPELINE -->
+    <aside class="panel">
+      <div class="panel-head">
+        <h2><span class="ic">🎬</span> My pipeline</h2>
+        <div class="pl-stats" id="plStats"></div>
+      </div>
+      <div class="addform">
+        <input type="text" id="inTitle" placeholder="New idea (e.g. Mina the Hollower intro)">
+        <textarea id="inNote" placeholder="Notes / angle…"></textarea>
+        <div class="sel-row">
+          <select id="inTier">
+            <option value="1">T1 · Hidden gem</option>
+            <option value="2">T2 · High-volume</option>
+            <option value="3">T3 · List / news</option>
+          </select>
+          <select id="inPlatform">
+            <option>Shorts</option>
+            <option>Reels</option>
+            <option selected>Both</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="addBtn" style="justify-content:center">+ Add to pipeline</button>
+      </div>
+      <div class="pl-list" id="pipelineList"></div>
+    </aside>
+
+  </div>
+
+  <p class="footnote">
+    Trends seeded <b>May 31, 2026</b> from live web data. Hit <b>Live refresh</b> any time to re-pull current gaming buzz.<br>
+    Your pipeline saves automatically and stays here between sessions.
+  </p>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var logger = console;
+
+
+  // ---------- seed data (live as of May 31, 2026) ----------
+  var SEED = [
+    {title:"Summer Game Fest 2026", heat:"hot", tier:1, saturation:"open", urgent:true,
+     angle:"Drop a 'hidden gems to watch' Short before June 5 — Day of the Devs has 60+ indies in Hinglish blindspot.",
+     why:"Kicks off June 5, runs to June 8. Biggest discovery moment of the summer."},
+    {title:"GTA 6 — Nov 19 locked", heat:"hot", tier:2, saturation:"crowded", urgent:false,
+     angle:"Don't go head-on. Ride the search wave sideways: 'games to play before GTA 6', Vice City real-vs-game, countdown.",
+     why:"Take-Two locked Nov 19, 2026 in its May 21 earnings. Trailer 3 + pre-orders expected late June."},
+    {title:"GTA 6 'launch day' that wasn't", heat:"warm", tier:2, saturation:"crowded", urgent:true,
+     angle:"20-sec reaction Reel: the full delay timeline (2025 → May 2026 → Nov 2026) in one breath.",
+     why:"May 26 was the old release date — it came and went this week. Big talking point."},
+    {title:"007 First Light", heat:"warm", tier:1, saturation:"crowded", urgent:false,
+     angle:"You already scripted this — push the gadgets/spycraft deep-dive now it's actually out and people are searching.",
+     why:"IO Interactive's young-Bond origin launched May 27."},
+    {title:"Hollow Knight: Silksong", heat:"hot", tier:1, saturation:"crowded", urgent:false,
+     angle:"History-of-the-wait explainer, or hold and react fast if it shows at SGF.",
+     why:"One of the most anticipated indies alive; constant buzz, possible SGF appearance."},
+    {title:"Mina the Hollower", heat:"warm", tier:1, saturation:"open", urgent:false,
+     angle:"Pure discovery intro — from the Shovel Knight team, almost zero Hinglish coverage. Your lane.",
+     why:"Yacht Club's pixel action-adventure, strong wishlist, 2026 window."},
+    {title:"Hades II (full 1.0)", heat:"warm", tier:1, saturation:"medium", urgent:false,
+     angle:"'From early access to full release — what actually changed' breakdown.",
+     why:"Supergiant's roguelike sequel heading to full 2026 launch after a strong EA run."},
+    {title:"Subnautica 2", heat:"warm", tier:1, saturation:"medium", urgent:false,
+     angle:"Underwater survival intro + the messy Krafton/dev backstory as the hook.",
+     why:"Entered early access May 14; huge Steam wishlist despite a turbulent dev period."},
+    {title:"Clair Obscur: Expedition 33", heat:"warm", tier:1, saturation:"medium", urgent:false,
+     angle:"'The RPG that came out of nowhere' retrospective — still in GOTY talks a year later.",
+     why:"Breakout hit still dominating year-end conversations into 2026."},
+    {title:"Xbox logo drama + Asha Sharma", heat:"warm", tier:3, saturation:"medium", urgent:false,
+     angle:"60-sec explainer: why blurring PS/Switch logos blew up + who the new Xbox CEO is.",
+     why:"New Xbox CEO Asha Sharma responded to backlash over Microsoft's showcase logo policy."},
+    {title:"Pokémon Winds & Waves leaks", heat:"warm", tier:2, saturation:"crowded", urgent:true,
+     angle:"Fast leak-roundup Short — your bread and butter on breaking news.",
+     why:"Fresh Gen-10 leaks teasing story and characters are circulating now."},
+    {title:"Cairn", heat:"cool", tier:1, saturation:"open", urgent:false,
+     angle:"Hidden-gem intro: the climbing game critics loved, basically no Hinglish coverage.",
+     why:"Indie climbing game in Indie-GOTY conversations; wide-open lane."}
+  ];
+
+  var STATUSES = ["Idea","Scripting","Filming","Posted"];
+  var STATUS_CLASS = {Idea:"st-idea",Scripting:"st-scripting",Filming:"st-filming",Posted:"st-posted"};
+
+  // ---------- state ----------
+  var trends = SEED.slice();
+  var pipeline = [];
+  var activeFilter = "all";
+
+  var $ = function(id){return document.getElementById(id);};
+  var trendList = $("trendList");
+  var pipelineList = $("pipelineList");
+
+  // ---------- storage helpers (persist across sessions) ----------
+  function loadTrends(){
+    // First, try to fetch the live Notion-synced JSON file
+    return fetch("trends.json")
+      .then(function(res){
+        if(!res.ok) throw new Error("File not found");
+        return res.json();
+      })
+      .then(function(data){
+        if(Array.isArray(data) && data.length){
+          trends = data;
+          logger.info("Successfully synced trends directly from Notion!");
+          toast("Notion synced live ✓");
+        }
+      })
+      .catch(function(){
+        // Fallback to offline local storage cache or SEED
+        return (window.storage ? window.storage.get("trends:cache") : Promise.resolve(null))
+          .then(function(r){
+            if(r && r.value){
+              var c = JSON.parse(r.value);
+              if(c && Array.isArray(c.items) && c.items.length){ trends = c.items; }
+            }
+          });
+      });
+  }
+  function saveTrends(){
+    if(!window.storage) return;
+    try{ window.storage.set("trends:cache", JSON.stringify({items:trends, ts:Date.now()})); }catch(e){}
+  }
+  function loadPipeline(){
+    // First, try to fetch the live Notion-synced JSON file
+    return fetch("pipeline.json")
+      .then(function(res){
+        if(!res.ok) throw new Error("File not found");
+        return res.json();
+      })
+      .then(function(data){
+        if(Array.isArray(data)){
+          pipeline = data;
+          logger.info("Successfully synced pipeline directly from Notion!");
+        }
+      })
+      .catch(function(){
+        // Fallback to local storage cache
+        return (window.storage ? window.storage.get("pipeline:items") : Promise.resolve(null))
+          .then(function(r){
+            if(r && r.value){
+              var arr = JSON.parse(r.value);
+              if(Array.isArray(arr)) pipeline = arr;
+            }
+          });
+      });
+  }
+  function savePipeline(){
+    if(!window.storage) return;
+    try{ window.storage.set("pipeline:items", JSON.stringify(pipeline)); }catch(e){}
+  }
+
+
+  // ---------- header chips ----------
+  function setupHeader(){
+    var now = new Date();
+    var opts = {weekday:"short", day:"numeric", month:"short"};
+    $("dateChip").textContent = now.toLocaleDateString("en-GB", opts);
+    // SGF countdown — June 5, 2026
+    var sgf = new Date(2026, 5, 5);
+    var days = Math.ceil((sgf - now) / 86400000);
+    var chip = $("sgfChip");
+    if(days > 0 && days <= 40){
+      chip.style.display = "flex";
+      chip.innerHTML = '<span class="dot" style="background:var(--cyan)"></span>SGF in <b>'+days+'d</b>';
+    } else if(days <= 0 && days > -4){
+      chip.style.display = "flex";
+      chip.innerHTML = '<span class="dot" style="background:var(--hot)"></span><b>SGF live now</b>';
+    }
+  }
+
+  // ---------- render trends ----------
+  function heatTag(h){
+    var lbl = (h||"warm").toUpperCase();
+    return '<span class="tag"><span class="dot heat-'+(h||"warm")+'" style="background:currentColor" '+
+           'aria-hidden="true"></span><span class="heat-'+(h||"warm")+'">'+lbl+'</span></span>';
+  }
+  function satLabel(s){
+    if(s==="open") return "OPEN LANE";
+    if(s==="crowded") return "CROWDED";
+    return "SOME COVERAGE";
+  }
+  function renderTrends(){
+    trendList.innerHTML = "";
+    var shown = trends.filter(function(t){
+      if(activeFilter==="all") return true;
+      if(activeFilter==="urgent") return !!t.urgent;
+      return String(t.tier)===activeFilter;
+    });
+    if(!shown.length){
+      trendList.innerHTML = '<div class="empty"><div class="big">∅</div>Nothing in this filter right now.</div>';
+      return;
+    }
+    shown.forEach(function(t, i){
+      var tier = (t.tier===2||t.tier==="2")?2:(t.tier===3||t.tier==="3")?3:1;
+      var card = document.createElement("div");
+      card.className = "tcard t"+tier;
+      card.style.animationDelay = (i*0.03)+"s";
+      var tierLabel = tier===1?"T1 · Hidden gem":tier===2?"T2 · High-volume":"T3 · List / news";
+      var urgentTag = t.urgent ? '<span class="tag urgent"><span class="dot" style="background:var(--hot)"></span>TIME-SENSITIVE</span>' : '';
+      card.innerHTML =
+        '<div class="tcard-top"><h3>'+esc(t.title)+'</h3></div>'+
+        '<div class="tags">'+
+          heatTag(t.heat)+
+          '<span class="tag tier"><span class="dot" style="background:var(--accent)"></span>'+tierLabel+'</span>'+
+          '<span class="tag">'+satLabel(t.saturation)+'</span>'+
+          urgentTag+
+        '</div>'+
+        '<div class="angle">'+esc(t.angle||"")+'</div>'+
+        (t.why?'<div class="why">↳ '+esc(t.why)+'</div>':'')+
+        '<div class="tcard-foot"><button class="add-btn">+ Add to pipeline</button></div>';
+      var btn = card.querySelector(".add-btn");
+      btn.addEventListener("click", function(){
+        btn.textContent = "⌛ Moving...";
+        btn.disabled = true;
+        addToPipeline({title:t.title, tier:tier, platform:"Both", note:t.angle||"", urgent:!!t.urgent}, t.title, btn);
+      });
+      trendList.appendChild(card);
+    });
+  }
+
+  // ---------- pipeline ----------
+  function addToPipeline(data, trendTitle, btnElement){
+    toast("Moving to pipeline...");
+    fetch("api/pipeline/add", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        title: data.title,
+        tier: data.tier,
+        note: data.note || "",
+        trend_title: trendTitle || ""
+      })
+    })
+    .then(function(res){ return res.json(); })
+    .then(function(resData){
+      if(resData.error) throw new Error(resData.error);
+      toast("Moved to pipeline ✓");
+      if(btnElement) {
+        btnElement.textContent = "✓ Added";
+        btnElement.classList.add("added");
+      }
+      return Promise.all([loadTrends(), loadPipeline()]);
+    })
+    .then(function(){
+      renderTrends();
+      renderPipeline();
+    })
+    .catch(function(err){
+      console.error(err);
+      toast("Sync failed — saved offline", true);
+      if(btnElement) {
+        btnElement.textContent = "✓ Added";
+        btnElement.classList.add("added");
+      }
+      pipeline.unshift({
+        id: Date.now()+"-"+Math.random().toString(36).slice(2,7),
+        title: data.title,
+        tier: data.tier,
+        platform: data.platform||"Both",
+        status: "Idea",
+        note: data.note||"",
+        urgent: !!data.urgent
+      });
+      savePipeline();
+      renderPipeline();
+    });
+  }
+  function renderPipeline(){
+    pipelineList.innerHTML = "";
+    $("queueCount").textContent = pipeline.length;
+    renderStats();
+    if(!pipeline.length){
+      pipelineList.innerHTML = '<div class="empty"><div class="big">＋</div>No content queued yet.<br>Tap a trend on the left, or add your own above.</div>';
+      return;
+    }
+    pipeline.forEach(function(p){
+      var card = document.createElement("div");
+      card.className = "pcard";
+      var tier = (p.tier===2||p.tier==="2")?2:(p.tier===3||p.tier==="3")?3:1;
+      var tierTxt = tier===1?"T1":tier===2?"T2":"T3";
+      card.innerHTML =
+        '<div class="pcard-top"><h4>'+esc(p.title)+'</h4><button class="del" title="Delete">×</button></div>'+
+        (p.note?'<div class="pnote">'+esc(p.note)+'</div>':'')+
+        '<div class="pcard-tags">'+
+          '<button class="status-btn '+STATUS_CLASS[p.status]+'"><span class="dot" style="background:var(--accent)"></span>'+p.status+'</button>'+
+          '<span class="ptag tier'+tier+'">'+tierTxt+'</span>'+
+          '<span class="ptag">'+esc(p.platform)+'</span>'+
+          (p.urgent?'<span class="ptag" style="color:var(--hot);border-color:rgba(255,77,109,.35)">⏱ live</span>':'')+
+        '</div>';
+      card.querySelector(".del").addEventListener("click", function(){
+        toast("Deleting from Notion...");
+        fetch("api/pipeline/delete", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ page_id: p.id })
+        })
+        .then(function(res){ return res.json(); })
+        .then(function(resData){
+          if(resData.error) throw new Error(resData.error);
+          toast("Removed ✓");
+          return loadPipeline();
+        })
+        .then(function(){ renderPipeline(); })
+        .catch(function(){
+          pipeline = pipeline.filter(function(x){return x.id!==p.id;});
+          savePipeline(); renderPipeline(); toast("Removed offline");
+        });
+      });
+      card.querySelector(".status-btn").addEventListener("click", function(){
+        var i = STATUSES.indexOf(p.status);
+        var nextStatus = STATUSES[(i+1)%STATUSES.length];
+        toast("Updating Notion...");
+        fetch("api/pipeline/update-status", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ page_id: p.id, status: nextStatus })
+        })
+        .then(function(res){ return res.json(); })
+        .then(function(resData){
+          if(resData.error) throw new Error(resData.error);
+          toast("Status updated ✓");
+          return loadPipeline();
+        })
+        .then(function(){ renderPipeline(); })
+        .catch(function(){
+          p.status = nextStatus;
+          savePipeline(); renderPipeline(); toast("Status updated offline");
+        });
+      });
+      pipelineList.appendChild(card);
+    });
+  }
+  function renderStats(){
+    var counts = {Idea:0,Scripting:0,Filming:0,Posted:0};
+    pipeline.forEach(function(p){ if(counts[p.status]!=null) counts[p.status]++; });
+    $("plStats").innerHTML =
+      '<span class="pl-stat" title="Scripting"><span class="dot" style="background:var(--amber)"></span><b>'+counts.Scripting+'</b></span>'+
+      '<span class="pl-stat" title="Filming"><span class="dot" style="background:var(--cyan)"></span><b>'+counts.Filming+'</b></span>'+
+      '<span class="pl-stat" title="Posted"><span class="dot" style="background:var(--lime)"></span><b>'+counts.Posted+'</b></span>';
+  }
+
+  // ---------- manual add ----------
+  $("addBtn").addEventListener("click", function(){
+    var title = $("inTitle").value.trim();
+    if(!title){ toast("Add a title first", true); $("inTitle").focus(); return; }
+    addToPipeline({
+      title: title,
+      tier: parseInt($("inTier").value,10),
+      platform: $("inPlatform").value,
+      note: $("inNote").value.trim()
+    }, null, null);
+    $("inTitle").value=""; $("inNote").value="";
+  });
+  $("inTitle").addEventListener("keydown", function(e){ if(e.key==="Enter") $("addBtn").click(); });
+
+  // ---------- filters ----------
+  $("filters").addEventListener("click", function(e){
+    var b = e.target.closest(".fchip"); if(!b) return;
+    activeFilter = b.getAttribute("data-f");
+    Array.prototype.forEach.call(this.children, function(c){ c.classList.remove("active"); });
+    b.classList.add("active");
+    renderTrends();
+  });
+
+  // ---------- reset trends to seed ----------
+  $("resetTrends").addEventListener("click", function(){
+    trends = SEED.slice(); saveTrends(); renderTrends(); toast("Reset to seed list");
+  });
+
+  // ---------- LIVE refresh via backend scraping ----------
+  var refreshBtn = $("refreshBtn"), refreshLabel = $("refreshLabel");
+  var statusInterval;
+
+  function pollRefreshStatus(){
+    fetch("api/status")
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        if(!data.is_scraping){
+          clearInterval(statusInterval);
+          setRefreshing(false);
+          Promise.all([loadTrends(), loadPipeline()]).then(function(){
+            renderTrends();
+            renderPipeline();
+            toast("Trends refreshed live ✓");
+          });
+        }
+      })
+      .catch(function(){
+        clearInterval(statusInterval);
+        setRefreshing(false);
+      });
+  }
+
+  refreshBtn.addEventListener("click", function(){
+    setRefreshing(true);
+    toast("Starting live background scrape...");
+    
+    fetch("api/refresh", { method: "POST" })
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        toast("Scraping YouTube & Reddit RSS...");
+        statusInterval = setInterval(pollRefreshStatus, 3000);
+      })
+      .catch(function(err){
+        console.error(err);
+        setRefreshing(false);
+        toast("Scrape launch failed", true);
+      });
+  });
+
+  function setRefreshing(on){
+    refreshBtn.disabled = on;
+    refreshLabel.innerHTML = on ? '<span class="spin"></span> Scanning…' : "⟳ Live refresh";
+  }
+
+
+  // ---------- utils ----------
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  var toastTimer;
+  function toast(msg, isErr){
+    var t = $("toast");
+    t.textContent = msg;
+    t.className = "show" + (isErr?" err":"");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.className = t.className.replace("show",""); }, 2200);
+  }
+
+  // ---------- boot ----------
+  setupHeader();
+  Promise.all([loadTrends(), loadPipeline()]).then(function(){
+    renderTrends();
+    renderPipeline();
+  });
+})();
+</script>
+</body>
+</html>
