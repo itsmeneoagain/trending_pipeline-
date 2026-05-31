@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Content Production Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Sora:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0d14;
+    --panel:#11161f;
+    --panel-2:#161c28;
+    --line:#222a39;
+    --line-soft:#1a2230;
+    --text:#e9edf6;
+    --muted:#8893a8;
+    --faint:#5b6678;
+    --lime:#b8ff2e;
+    --cyan:#36d0ff;
+    --amber:#ffb020;
+    --hot:#ff4d6d;
+    --cool:#6aa8ff;
+    --radius:14px;
+    --display:'Chakra Petch', ui-sans-serif, system-ui, sans-serif;
+    --body:'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--body);
+    color:var(--text);
+    background:
+      radial-gradient(900px 600px at 15% -10%, rgba(54,208,255,.08), transparent 60%),
+      radial-gradient(800px 500px at 85% 0%, rgba(184,255,46,.06), transparent 55%),
+      var(--bg);
+    background-attachment:fixed;
+    min-height:100vh;
+    padding:22px 18px 60px;
+    line-height:1.5;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
+                     linear-gradient(90deg, rgba(255,255,255,.018) 1px,transparent 1px);
+    background-size:46px 46px;
+    mask-image:radial-gradient(1200px 800px at 50% 0%, #000 30%, transparent 80%);
+  }
+  .wrap{max-width:1100px;margin:0 auto;position:relative;z-index:1}
+
+  /* ---------- header ---------- */
+  header{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    gap:18px;flex-wrap:wrap;margin-bottom:22px;
+    padding-bottom:18px;border-bottom:1px solid var(--line-soft);
+  }
+  .brand{display:flex;align-items:center;gap:13px}
+  .pulse{
+    width:13px;height:13px;border-radius:50%;background:var(--cyan);
+    box-shadow:0 0 0 0 rgba(54,208,255,.55);animation:pulse 2.1s infinite;flex:none;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(54,208,255,.5)}
+    70%{box-shadow:0 0 0 11px rgba(54,208,255,0)}
+    100%{box-shadow:0 0 0 0 rgba(54,208,255,0)}
+  }
+  .brand h1{
+    font-family:var(--display);font-weight:700;font-size:25px;letter-spacing:.04em;
+    text-transform:uppercase;line-height:1;
+  }
+  .brand h1 span{color:var(--cyan)}
+  .brand p{font-size:12.5px;color:var(--muted);margin-top:5px;letter-spacing:.01em}
+  .chips-top{display:flex;gap:9px;flex-wrap:wrap}
+  .stat-chip{
+    font-family:var(--display);font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;
+    padding:8px 13px;border:1px solid var(--line);border-radius:999px;color:var(--muted);
+    background:rgba(255,255,255,.015);display:flex;align-items:center;gap:7px;white-space:nowrap;
+  }
+  .stat-chip b{color:var(--text);font-weight:700}
+  .dot{width:7px;height:7px;border-radius:50%;flex:none}
+
+  /* buttons */
+  button{font-family:var(--body);cursor:pointer;border:none;background:none;color:inherit}
+  .btn{
+    font-family:var(--display);font-size:12px;letter-spacing:.04em;text-transform:uppercase;font-weight:600;
+    padding:8px 13px;border-radius:9px;border:1px solid var(--line);color:var(--text);
+    background:rgba(255,255,255,.02);transition:.16s;display:inline-flex;align-items:center;gap:7px;
+  }
+  .btn:hover{border-color:#33405a;background:rgba(255,255,255,.05)}
+  .btn-primary{
+    background:var(--cyan);color:#0a0d14;border-color:var(--cyan);font-weight:700;
+  }
+  .btn-primary:hover{background:#5cd8ff;border-color:#5cd8ff}
+  .btn-primary:disabled{opacity:.55;cursor:wait}
+  .btn-ghost{border-color:transparent;color:var(--muted);padding:8px 12px}
+  .btn-ghost:hover{color:var(--text);background:rgba(255,255,255,.04)}
+
+  /* ---------- layout ---------- */
+  .layout-grid{display:grid;grid-template-columns:1fr;gap:22px}
+
+  .panel{
+    background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .panel-head{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:16px 18px;border-bottom:1px solid var(--line-soft);
+    background:linear-gradient(180deg, rgba(255,255,255,.02), transparent);
+  }
+  .panel-head h2{
+    font-family:var(--display);font-size:15px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+    display:flex;align-items:center;gap:9px;
+  }
+  .panel-head h2 .ic{font-size:15px}
+  .head-actions{display:flex;gap:8px;align-items:center}
+
+  /* filter chips */
+  .filters{display:flex;gap:8px;flex-wrap:wrap;padding:14px 18px 4px}
+  .fchip{
+    font-family:var(--display);font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;font-weight:500;
+    padding:7px 12px;border-radius:999px;border:1px solid var(--line);color:var(--muted);
+    background:transparent;transition:.15s;
+  }
+  .fchip:hover{color:var(--text);border-color:#33405a}
+  .fchip.active{background:var(--text);color:#0a0d14;border-color:var(--text);font-weight:700}
+  .fchip.active.st-idea{background:var(--faint);border-color:var(--faint);color:#fff}
+  .fchip.active.st-scripting{background:var(--amber);border-color:var(--amber);color:#000}
+  .fchip.active.st-filming{background:var(--cyan);border-color:var(--cyan);color:#000}
+  .fchip.active.st-posted{background:var(--lime);border-color:var(--lime);color:#000}
+
+  /* cards */
+  .pipeline-grid{
+    padding:14px 18px 18px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+  }
+  @media (max-width:768px){ .pipeline-grid{grid-template-columns:1fr} }
+
+  .pcard{
+    border:1px solid var(--line-soft);border-radius:12px;background:var(--panel-2);
+    padding:16px 18px;display:flex;flex-direction:column;gap:11px;
+    transition:.18s;animation:rise .35s ease both;position:relative;
+  }
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .pcard::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent,var(--faint));
+  }
+  .pcard.st-idea{--accent:var(--faint)} .pcard.st-scripting{--accent:var(--amber)}
+  .pcard.st-filming{--accent:var(--cyan)} .pcard.st-posted{--accent:var(--lime)}
+
+  .pcard.has-url{cursor:pointer}
+  .pcard.has-url:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.25)}
+
+  .pcard-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+  .pcard h4{font-size:15px;font-weight:600;line-height:1.3;letter-spacing:-.01em}
+  .pcard .del{
+    color:var(--faint);font-size:18px;line-height:1;padding:2px 6px;border-radius:6px;flex:none;transition:.12s;
+  }
+  .pcard .del:hover{color:var(--hot);background:rgba(255,77,109,.1)}
+  .pcard .pnote{font-size:12.5px;color:#c4ccdb;line-height:1.45;padding-left:11px;border-left:2px solid var(--line)}
+  
+  .pcard-tags{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .ptag{font-family:var(--display);font-size:10px;letter-spacing:.04em;text-transform:uppercase;font-weight:600;
+    padding:3px 8px;border-radius:5px;border:1px solid var(--line);color:var(--muted)}
+  .ptag.tier1{color:var(--lime);border-color:rgba(184,255,46,.35)}
+  .ptag.tier2{color:var(--cyan);border-color:rgba(54,208,255,.35)}
+  .ptag.tier3{color:var(--amber);border-color:rgba(255,176,32,.35)}
+  
+  .status-btn{
+    font-family:var(--display);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;
+    padding:4px 10px;border-radius:999px;border:1px solid var(--accent,var(--muted));
+    color:var(--accent,var(--muted));background:color-mix(in srgb,var(--accent) 10%, transparent);
+    cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px;
+  }
+  .status-btn:hover{background:color-mix(in srgb,var(--accent) 22%, transparent)}
+  .status-btn .dot{width:6px;height:6px}
+
+  .empty{text-align:center;color:var(--faint);font-size:13px;padding:60px 16px;line-height:1.6;grid-column:1/-1}
+  .empty .big{font-family:var(--display);font-size:40px;color:var(--line);margin-bottom:8px}
+
+  /* form panel */
+  .add-form-panel{
+    padding:16px 18px;border-bottom:1px solid var(--line-soft);
+    display:flex;flex-wrap:wrap;gap:12px;align-items:center;background:rgba(255,255,255,.005);
+  }
+  .add-form-panel input, .add-form-panel textarea, .add-form-panel select{
+    font-family:var(--body);font-size:13px;color:var(--text);
+    background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;transition:.15s;
+  }
+  .add-form-panel input:focus, .add-form-panel textarea:focus, .add-form-panel select:focus{
+    outline:none;border-color:var(--cyan);
+  }
+  .add-form-panel input{width:220px;flex:1}
+  .add-form-panel textarea{width:300px;flex:2;resize:none;height:35px;line-height:1.4}
+  .add-form-panel select{width:130px;cursor:pointer}
+
+  /* toast */
+  #toast{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+    background:#161c28;border:1px solid var(--line);color:var(--text);
+    font-family:var(--display);font-size:12.5px;letter-spacing:.03em;
+    padding:11px 18px;border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.4);
+    opacity:0;pointer-events:none;transition:.25s;z-index:50;display:flex;align-items:center;gap:9px;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.err{border-color:var(--hot);color:#ffb9c5}
+  .footnote{text-align:center;color:var(--faint);font-size:11.5px;margin-top:20px;line-height:1.6}
+  .footnote b{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="pulse"></div>
+      <div>
+        <h1>Production <span>Pipeline</span></h1>
+        <p>Dynamic Content Scripting, Filming, and Publishing Board.</p>
+      </div>
+    </div>
+    <div class="chips-top">
+      <a href="/" class="btn btn-ghost" style="text-decoration:none; gap:6px;">📡 Go to Discovery Radar</a>
+      <div class="stat-chip live" style="border-color:var(--line);"><span class="dot" style="background:var(--cyan)"></span><b id="queueCount">0</b>&nbsp;active items</div>
+    </div>
+  </header>
+
+  <div class="layout-grid">
+
+    <!-- PIPELINE PANEL -->
+    <section class="panel">
+      <div class="panel-head">
+        <h2><span class="ic">🎬</span> Production Script & Video Queue</h2>
+        <div class="pl-stats" id="plStats">
+          <span class="stat-chip" id="countIdea" style="border:none; padding:0 6px;">Idea: <b>0</b></span>
+          <span class="stat-chip" id="countScripting" style="border:none; padding:0 6px;">Scripting: <b>0</b></span>
+          <span class="stat-chip" id="countFilming" style="border:none; padding:0 6px;">Filming: <b>0</b></span>
+          <span class="stat-chip" id="countPosted" style="border:none; padding:0 6px;">Posted: <b>0</b></span>
+        </div>
+      </div>
+      
+      <!-- Quick Add Card -->
+      <div class="add-form-panel">
+        <input type="text" id="inTitle" placeholder="Video idea topic title...">
+        <textarea id="inNote" placeholder="Angle description, script hook notes, or reference links..."></textarea>
+        <select id="inTier">
+          <option value="1">T1 · Hidden Gem</option>
+          <option value="2">T2 · High-Volume</option>
+          <option value="3" selected>T3 · List / News</option>
+        </select>
+        <select id="inPlatform">
+          <option>Shorts</option>
+          <option>Reels</option>
+          <option selected>Both</option>
+        </select>
+        <button class="btn btn-primary" id="addBtn">+ Add</button>
+      </div>
+
+      <!-- Advanced Filters -->
+      <div class="filters" id="pipelineFilters">
+        <button class="fchip active" data-f="all">All queue</button>
+        <button class="fchip st-idea" data-f="Idea">💡 Idea</button>
+        <button class="fchip st-scripting" data-f="Scripting">✍️ Scripting</button>
+        <button class="fchip st-filming" data-f="Filming">🎥 Filming</button>
+        <button class="fchip st-posted" data-f="Posted">✅ Posted / Done</button>
+      </div>
+
+      <!-- Pipeline Cards Grid -->
+      <div class="pipeline-grid" id="pipelineList"></div>
+    </section>
+
+  </div>
+
+  <p class="footnote">
+    Connected to your active **Notion Content Pipeline Database**. Changes auto-save in real-time.
+  </p>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var logger = console;
+
+  // Dynamically route API and JSON cache requests.
+  var API_BASE = "";
+  if (window.location.hostname !== "localhost" && 
+      window.location.hostname !== "127.0.0.1" && 
+      window.location.hostname !== "content-pipeline.neo") {
+    API_BASE = "http://localhost:8080/";
+  }
+
+  var STATUSES = ["Idea","Scripting","Filming","Posted"];
+  var STATUS_CLASS = {Idea:"st-idea",Scripting:"st-scripting",Filming:"st-filming",Posted:"st-posted"};
+
+  var pipeline = [];
+  var activePipelineFilter = "all";
+
+  var $ = function(id){return document.getElementById(id);};
+  var pipelineList = $("pipelineList");
+
+  function loadPipeline(){
+    return fetch(API_BASE + "pipeline.json")
+      .then(function(res){
+        if(!res.ok) throw new Error("File not found");
+        return res.json();
+      })
+      .then(function(data){
+        if(Array.isArray(data)){
+          pipeline = data;
+          logger.info("Successfully synced pipeline!");
+        }
+      })
+      .catch(function(){
+        // Fallback to local storage cache
+        if(window.localStorage){
+          var arr = localStorage.getItem("pipeline:items");
+          if(arr){
+            var parsed = JSON.parse(arr);
+            if(Array.isArray(parsed)) pipeline = parsed;
+          }
+        }
+      });
+  }
+
+  function savePipelineOffline(){
+    if(!window.localStorage) return;
+    try{ localStorage.setItem("pipeline:items", JSON.stringify(pipeline)); }catch(e){}
+  }
+
+  function renderPipeline(){
+    pipelineList.innerHTML = "";
+    $("queueCount").textContent = pipeline.length;
+    renderStats();
+    
+    var shown = pipeline.filter(function(p){
+      if(activePipelineFilter === "all") return true;
+      return p.status === activePipelineFilter;
+    });
+
+    if(!shown.length){
+      pipelineList.innerHTML = '<div class="empty"><div class="big">∅</div>No active cards inside this filter.</div>';
+      return;
+    }
+
+    shown.forEach(function(p){
+      var card = document.createElement("div");
+      var statusClass = STATUS_CLASS[p.status] || "st-idea";
+      card.className = "pcard " + statusClass;
+      
+      // Click card to open any URL parsed inside the note
+      var urlMatch = p.note ? p.note.match(/https?:\/\/[^\s]+/g) : null;
+      var cardUrl = urlMatch ? urlMatch[0] : null;
+      if (cardUrl) {
+        card.classList.add("has-url");
+        card.addEventListener("click", function(e){
+          if(e.target.closest("button") || e.target.closest("a")) return;
+          window.open(cardUrl, "_blank");
+        });
+      }
+
+      var tier = (p.tier===2||p.tier==="2")?2:(p.tier===3||p.tier==="3")?3:1;
+      var tierTxt = tier===1?"T1 · Hidden Gem":tier===2?"T2 · High-Volume":"T3 · List / News";
+      
+      card.innerHTML =
+        '<div class="pcard-top"><h4>'+esc(p.title)+'</h4><button class="del" title="Delete">×</button></div>'+
+        (p.note?'<div class="pnote">'+esc(p.note)+'</div>':'')+
+        '<div class="pcard-tags">'+
+          '<button class="status-btn"><span class="dot" style="background:currentColor"></span>'+p.status+'</button>'+
+          '<span class="ptag tier'+tier+'">'+tierTxt+'</span>'+
+          '<span class="ptag">'+esc(p.platform)+'</span>'+
+        '</div>';
+
+      card.querySelector(".del").addEventListener("click", function(){
+        toast("Deleting from Notion...");
+        fetch(API_BASE + "api/pipeline/delete", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ page_id: p.id })
+        })
+        .then(function(res){ return res.json(); })
+        .then(function(resData){
+          if(resData.error) throw new Error(resData.error);
+          toast("Removed ✓");
+          return loadPipeline();
+        })
+        .then(function(){ renderPipeline(); })
+        .catch(function(){
+          pipeline = pipeline.filter(function(x){return x.id!==p.id;});
+          savePipelineOffline(); renderPipeline(); toast("Removed offline");
+        });
+      });
+
+      card.querySelector(".status-btn").addEventListener("click", function(){
+        var i = STATUSES.indexOf(p.status);
+        var nextStatus = STATUSES[(i+1)%STATUSES.length];
+        toast("Updating Notion...");
+        fetch(API_BASE + "api/pipeline/update-status", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ page_id: p.id, status: nextStatus })
+        })
+        .then(function(res){ return res.json(); })
+        .then(function(resData){
+          if(resData.error) throw new Error(resData.error);
+          toast("Status updated ✓");
+          return loadPipeline();
+        })
+        .then(function(){ renderPipeline(); })
+        .catch(function(){
+          p.status = nextStatus;
+          savePipelineOffline(); renderPipeline(); toast("Status updated offline");
+        });
+      });
+
+      pipelineList.appendChild(card);
+    });
+  }
+
+  function renderStats(){
+    var counts = {Idea:0,Scripting:0,Filming:0,Posted:0};
+    pipeline.forEach(function(p){ if(counts[p.status]!=null) counts[p.status]++; });
+    
+    $("countIdea").innerHTML = 'Idea: <b>'+counts.Idea+'</b>';
+    $("countScripting").innerHTML = 'Scripting: <b>'+counts.Scripting+'</b>';
+    $("countFilming").innerHTML = 'Filming: <b>'+counts.Filming+'</b>';
+    $("countPosted").innerHTML = 'Posted: <b>'+counts.Posted+'</b>';
+  }
+
+  function addToPipeline(data){
+    toast("Adding to pipeline...");
+    fetch(API_BASE + "api/pipeline/add", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        title: data.title,
+        tier: data.tier,
+        note: data.note || ""
+      })
+    })
+    .then(function(res){ return res.json(); })
+    .then(function(resData){
+      if(resData.error) throw new Error(resData.error);
+      toast("Added to Notion ✓");
+      return loadPipeline();
+    })
+    .then(function(){
+      renderPipeline();
+    })
+    .catch(function(err){
+      console.error(err);
+      toast("Sync failed — saved offline", true);
+      pipeline.unshift({
+        id: Date.now()+"-"+Math.random().toString(36).slice(2,7),
+        title: data.title,
+        tier: data.tier,
+        platform: data.platform||"Both",
+        status: "Idea",
+        note: data.note||""
+      });
+      savePipelineOffline();
+      renderPipeline();
+    });
+  }
+
+  // ---------- manual add ----------
+  $("addBtn").addEventListener("click", function(){
+    var title = $("inTitle").value.trim();
+    if(!title){ toast("Add a title first", true); $("inTitle").focus(); return; }
+    addToPipeline({
+      title: title,
+      tier: parseInt($("inTier").value,10),
+      platform: $("inPlatform").value,
+      note: $("inNote").value.trim()
+    });
+    $("inTitle").value=""; $("inNote").value="";
+  });
+  $("inTitle").addEventListener("keydown", function(e){ if(e.key==="Enter") $("addBtn").click(); });
+
+  // ---------- filter listener ----------
+  $("pipelineFilters").addEventListener("click", function(e){
+    var b = e.target.closest(".fchip"); if(!b) return;
+    activePipelineFilter = b.getAttribute("data-f");
+    Array.prototype.forEach.call(this.children, function(c){ c.classList.remove("active"); });
+    b.classList.add("active");
+    renderPipeline();
+  });
+
+  // ---------- utils ----------
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  var toastTimer;
+  function toast(msg, isErr){
+    var t = $("toast");
+    t.textContent = msg;
+    t.className = "show" + (isErr?" err":"");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.className = t.className.replace("show",""); }, 2200);
+  }
+
+  // ---------- boot ----------
+  loadPipeline().then(function(){
+    renderPipeline();
+  });
+})();
+</script>
+</body>
+</html>

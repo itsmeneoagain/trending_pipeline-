@@ -58,6 +58,20 @@ def index():
     return content
 
 
+@app.route("/pipeline")
+def pipeline_dashboard():
+    """Serve the content-pipeline.html dedicated board."""
+    root_dir = os.path.join(os.path.dirname(__file__), '..')
+    html_path = os.path.join(root_dir, 'content-pipeline.html')
+    if not os.path.exists(html_path):
+        return "Error: content-pipeline.html not found in repository root.", 404
+        
+    with open(html_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+    return content
+
+
+
 @app.route("/trends.json")
 def get_trends_json():
     """Serve the local synced trends cache directly to the dashboard."""
