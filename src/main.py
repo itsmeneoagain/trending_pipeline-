@@ -59,6 +59,20 @@ def run() -> int:
         logger.warning("No items fetched from any source — exiting")
         return 0
 
+    # ── 2.5. Gemini relevance filter ─────────────────────────────────
+    try:
+        from src.filter import gemini_batch_filter
+        from src.curator import client as gemini_client
+        before = len(all_items)
+        all_items = gemini_batch_filter(all_items, gemini_client)
+        logger.info("Relevance filter: %d → %d items", before, len(all_items))
+    except Exception as exc:
+        logger.error("Relevance filter failed — continuing unfiltered: %s", exc)
+
+    if not all_items:
+        logger.warning("All items filtered out — nothing to score")
+        return 0
+
     # ── 3. Scoring & categorisation ──────────────────────────────────
     try:
         from src.scorer import score_and_categorise

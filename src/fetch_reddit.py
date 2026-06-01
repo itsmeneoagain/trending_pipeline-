@@ -8,6 +8,7 @@ following Reddit's tightened API access policies (Responsible Builder Policy).
 """
 
 import logging
+import re
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -16,6 +17,20 @@ from html import unescape
 from typing import Optional
 
 import requests
+
+# Minimal pre-pass — only hardest drops (automated threads).
+# Full semantic filtering is handled by gemini_batch_filter() in filter.py.
+_REDDIT_HARD_DROP = re.compile(
+    r"daily\s+(question|discussion)\s+thread|weekly\s+(discussion|question)\s+thread"
+    r"|what\s+are\s+you\s+playing\s+thread|simple\s+questions\s+(sunday|monday)"
+    r"|indie\s+sunday\s+hub|pc\s+game\s+discounts.*weekend"
+    r"|sunday\s+show\s+off\s+thread",
+    re.IGNORECASE,
+)
+
+
+def _is_reddit_relevant(title: str) -> bool:
+    return not bool(_REDDIT_HARD_DROP.search(title))
 
 from src.config import (
     REDDIT_CLIENT_ID,
@@ -271,19 +286,20 @@ def fetch_reddit_posts() -> list[dict]:
         time.sleep(_RSS_DELAY)
 
     if posts:
-        logger.info(
-            "Reddit RSS total: %d posts from %d subreddits",
-            len(posts), len(SUBREDDITS),
-        )
+        before = len(posts)
+        posts = [p for p in posts if _is_reddit_relevant(p.get("title", ""))]
+        dropped = before - len(posts)
+        if dropped:
+            logger.info("Reddit relevance filter removed %d off-lane posts (%d kept)", dropped, len(posts))
+        logger.info("Reddit RSS total: %d posts from %d subreddits", len(posts), len(SUBREDDITS))
         return posts
 
     # Fallback to PRAW if RSS returned nothing and credentials exist
     if _praw_available():
-        logger.warning(
-            "RSS returned 0 posts — falling back to PRAW API (requires approval)"
-        )
+        logger.warning("RSS returned 0 posts — falling back to PRAW API (requires approval)")
         posts = _fetch_with_praw()
-        logger.info("Reddit PRAW fallback: %d posts", len(posts))
+        posts = [p for p in posts if _is_reddit_relevant(p.get("title", ""))]
+        logger.info("Reddit PRAW fallback: %d posts after filter", len(posts))
         return posts
 
     logger.warning(

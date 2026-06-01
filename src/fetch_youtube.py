@@ -8,7 +8,6 @@ before they reach the pipeline — keeping only content aligned with @NotAgainNe
 import json
 import logging
 import os
-import re
 
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -17,58 +16,19 @@ from src.config import YOUTUBE_API_KEY, TREND_FETCH_LIMIT
 
 logger = logging.getLogger(__name__)
 
-# ── Off-lane filter ──────────────────────────────────────────────────
-# Titles matching any of these patterns are dropped before scoring.
-# Targeting: live streams, mobile grind, GTA roleplay, kill-count videos.
-_OFF_LANE = re.compile(
-    r"\blive\b"                          # live stream keyword
-    r"|🔴"                               # red circle = live indicator
-    r"|\[live\]"
-    r"|rank\s*push"
-    r"|crate\s*open"
-    r"|\buc\b"                           # UC (in-game currency) grind
-    r"|conqueror.*rank|rank.*conqueror"
-    r"|#bgmilive|#fflive"
-    r"|free\s*fire.*\blive\b"
-    r"|bgmi.*\blive\b"
-    r"|franklin.*shinchan|shinchan.*franklin"  # GTA roleplay
-    r"|gta\s*\d*\s*real\s*life"
-    r"|buying\s+everything.*gta|franklin.*buying"
-    r"|\d{2,}\+?\s*kills?\s*(world\s*)?record"   # kill count records
-    r"|fat\s+to\s+fit"
-    r"|barbie.*ice\s*scream"
-    r"|petrol\s*pump.*vr"
-    r"|prisoner.*lilyville"
-    r"|day\s+\d+.*(minecraft|roblox|survival)"   # day-N series let's plays
-    r"|(minecraft|roblox).*day\s+\d+"
-    r"|60k\s*uc|uc\s*crate|crate.*opening",
-    re.IGNORECASE,
-)
-
-# Titles matching these are positively relevant to the channel
-_ON_LANE = re.compile(
-    r"explained|trailer|reveal|announc|leak|reportedly|confirm"
-    r"|easter\s*egg|hidden|secret|reference"
-    r"|history|story\s*of|origin|poora\s*safar|years?\s*ago"
-    r"|indie|hidden\s*gem|underrat"
-    r"|fail|flop|cancel|shutdown|studio|developer|doob"
-    r"|vs\.?|better\s*than|worth\s*it|\bprice\b|₹|\$\d"
-    r"|review|breakdown|deep.?dive|everything\s*(about|you|need)"
-    r"|kisi\s*ne|notice|99\s*%|miss(ed)?",
-    re.IGNORECASE,
+# Minimal pre-pass — only the most obvious drops that Gemini won't need to see
+# Full semantic filtering is handled by gemini_batch_filter() in filter.py
+import re as _re
+_OBVIOUS_DROP = _re.compile(
+    r"\blive\b|🔴|\[live\]|rank\s*push|crate\s*open|#bgmilive|#fflive"
+    r"|franklin.*shinchan|shinchan.*franklin|gta\s+rp\b"
+    r"|\bsmp\b|day\s+\d+.*(minecraft|roblox)|free\s*fire.*live|bgmi.*live",
+    _re.IGNORECASE,
 )
 
 
 def _is_relevant(title: str) -> bool:
-    """Return True if the video is worth including in the Neo pipeline.
-
-    Drops clear off-lane content; gives a small boost to explicitly on-lane
-    titles. Generic titles (no strong signal) pass through — the scorer handles
-    final ranking.
-    """
-    if _OFF_LANE.search(title):
-        return False
-    return True
+    return not bool(_OBVIOUS_DROP.search(title))
 
 
 def _build_service():
