@@ -214,6 +214,31 @@ def api_get_status():
     return jsonify({"is_scraping": _is_scraping})
 
 
+@app.route("/api/sync-notion", methods=["GET", "POST"])
+def api_sync_notion():
+    """Pull latest data from Notion and update local JSON caches.
+
+    Faster than /api/refresh — skips the full scraping pipeline and just
+    re-syncs whatever is already in Notion down to trends.json / pipeline.json.
+    Returns the fresh data so the dashboard can update without a second fetch.
+    """
+    try:
+        from src.notion_push import sync_notion_to_local_files
+        sync_notion_to_local_files()
+
+        import json as _json
+        root_dir = os.path.join(os.path.dirname(__file__), '..')
+        with open(os.path.join(root_dir, 'trends.json'), 'r', encoding='utf-8') as f:
+            trends_data = _json.load(f)
+        with open(os.path.join(root_dir, 'pipeline.json'), 'r', encoding='utf-8') as f:
+            pipeline_data = _json.load(f)
+
+        return jsonify({"status": "synced", "trends": trends_data, "pipeline": pipeline_data})
+    except Exception as exc:
+        logger.error("Notion sync failed: %s", exc)
+        return jsonify({"error": str(exc)}), 500
+
+
 # ── Dynamic Creator Config API ───────────────────────────────────────
 
 def _creators_local_fallback() -> dict:

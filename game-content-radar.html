@@ -566,11 +566,17 @@
       trendList.innerHTML = '<div class="empty"><div class="big">∅</div>' + msg + '</div>';
       return;
     }
-    shown.forEach(function(t, i){
+    // ── Lazy card rendering via IntersectionObserver ─────────────────
+    var _lazyItems = shown;
+    var _lazyIndex = 0;
+    var _BATCH = 15;
+    var _lazyObserver = null;
+
+    function _buildCard(t, i) {
       var tier = (t.tier===2||t.tier==="2")?2:(t.tier===3||t.tier==="3")?3:1;
       var card = document.createElement("div");
       card.className = "tcard t"+tier;
-      card.style.animationDelay = (i*0.03)+"s";
+      card.style.animationDelay = (i*0.025)+"s";
       var tierLabel = tier===1?"T1 · Hidden gem":tier===2?"T2 · High-volume":"T3 · List / news";
       var urgentTag = t.urgent ? '<span class="tag urgent"><span class="dot" style="background:var(--hot)"></span>TIME-SENSITIVE</span>' : '';
       var displayAngle = isGenericAngle(t.angle) ? generateSmartAngle(t.title, t.source, tier) : t.angle;
@@ -582,27 +588,51 @@
           heatTag(t.heat)+
           '<span class="tag tier"><span class="dot" style="background:var(--accent)"></span>'+tierLabel+'</span>'+
           '<span class="tag">'+satLabel(t.saturation)+'</span>'+
-          urgentTag+
-          offLaneTag+
+          urgentTag+offLaneTag+
         '</div>'+
         '<div class="angle">'+esc(displayAngle)+'</div>'+
         (t.why?'<div class="why">↳ '+esc(t.why)+'</div>':'')+
         '<div class="tcard-foot"><button class="add-btn">+ Add to pipeline</button></div>';
       var btn = card.querySelector(".add-btn");
-       btn.addEventListener("click", function(){
+      btn.addEventListener("click", function(){
         btn.textContent = "⌛ Moving...";
         btn.disabled = true;
         addToPipeline({title:t.title, tier:tier, platform:"Both", note:t.angle||"", urgent:!!t.urgent}, t.title, btn);
       });
-      if(t.url) {
+      if(t.url){
         card.classList.add("has-url");
         card.addEventListener("click", function(e){
-          if(e.target.closest("button") || e.target.closest("a")) return;
+          if(e.target.closest("button")||e.target.closest("a")) return;
           window.open(t.url, "_blank");
         });
       }
-      trendList.appendChild(card);
-    });
+      return card;
+    }
+
+    function _renderBatch() {
+      if (_lazyObserver) { _lazyObserver.disconnect(); _lazyObserver = null; }
+      var sentinel = document.getElementById("lazy-sentinel");
+      if (sentinel) sentinel.remove();
+
+      var end = Math.min(_lazyIndex + _BATCH, _lazyItems.length);
+      for (var j = _lazyIndex; j < end; j++) {
+        trendList.appendChild(_buildCard(_lazyItems[j], j));
+      }
+      _lazyIndex = end;
+
+      if (_lazyIndex < _lazyItems.length && "IntersectionObserver" in window) {
+        var s = document.createElement("div");
+        s.id = "lazy-sentinel";
+        s.style.height = "1px";
+        trendList.appendChild(s);
+        _lazyObserver = new IntersectionObserver(function(entries){
+          if (entries[0].isIntersecting) _renderBatch();
+        }, {rootMargin:"200px"});
+        _lazyObserver.observe(s);
+      }
+    }
+
+    _renderBatch();
   }
 
   // ---------- pipeline ----------
@@ -791,12 +821,7 @@
         if(!data.is_scraping){
           clearInterval(statusInterval);
           setRefreshing(false);
-          Promise.all([loadTrends(), loadPipeline()]).then(function(){
-            renderTrends();
-            renderPipeline();
-            renderTopicPulse();
-            toast("Trends refreshed live ✓");
-          });
+          _syncFromNotion(true);
         }
       })
       .catch(function(){
@@ -1104,12 +1129,47 @@
 
   // ---------- boot ----------
   setupHeader();
-  Promise.all([loadTrends(), loadPipeline()]).then(function(){
-    renderTrends();
-    renderPipeline();
-    renderTopicPulse();
-    loadCreators();
-  });
+
+  // 1. Render page shell immediately with whatever is cached
+  renderTrends();
+  renderPipeline();
+  renderTopicPulse();
+  loadCreators();
+
+  // 2. Lazily sync fresh data from Notion in the background
+  function _syncFromNotion(showToast) {
+    return fetch(API_BASE + "api/sync-notion")
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        if (data.error) throw new Error(data.error);
+        var changed = false;
+        if (Array.isArray(data.trends)) {
+          trends = data.trends;
+          changed = true;
+        }
+        if (Array.isArray(data.pipeline)) {
+          pipeline = data.pipeline;
+          changed = true;
+        }
+        if (changed) {
+          renderTrends();
+          renderPipeline();
+          renderTopicPulse();
+          if (showToast) toast("Notion synced live ✓");
+        }
+      })
+      .catch(function(err){
+        // Notion sync failed — fall back to local JSON files
+        Promise.all([loadTrends(), loadPipeline()]).then(function(){
+          renderTrends();
+          renderPipeline();
+          renderTopicPulse();
+        });
+      });
+  }
+
+  // Auto-sync on load (silent — no toast on first load)
+  _syncFromNotion(false);
 })();
 </script>
 </body>
