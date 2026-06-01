@@ -56,6 +56,7 @@ SUBREDDITS: list[str] = [
 NOTION_API_KEY: str = os.getenv("NOTION_API_KEY", "")
 NOTION_TRENDING_DB_ID: str = os.getenv("NOTION_TRENDING_DB_ID", "")
 NOTION_PIPELINE_DB_ID: str = os.getenv("NOTION_PIPELINE_DB_ID", "")
+NOTION_CREATORS_DB_ID: str = os.getenv("NOTION_CREATORS_DB_ID", "")
 
 # ── Gemini API (optional, for curation layer) ───────────────────────
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")

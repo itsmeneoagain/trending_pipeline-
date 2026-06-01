@@ -216,93 +216,143 @@ def api_get_status():
 
 # ── Dynamic Creator Config API ───────────────────────────────────────
 
-@app.route("/api/creators", methods=["GET"])
-def api_get_creators():
-    """Retrieve the list of dynamic YouTube and Instagram competitor handles."""
-    import json
+def _creators_local_fallback() -> dict:
+    """Read creators.json as flat {youtube: [...], instagram: [...]} for fallback."""
+    import json as _json
     root_dir = os.path.join(os.path.dirname(__file__), '..')
     path = os.path.join(root_dir, 'creators.json')
     if not os.path.exists(path):
+        empty = {"youtube": [], "instagram": []}
         with open(path, 'w', encoding='utf-8') as f:
-            json.dump({"youtube": [], "instagram": []}, f)
-            
+            _json.dump(empty, f)
+        return empty
+    with open(path, 'r', encoding='utf-8') as f:
+        return _json.load(f)
+
+
+def _write_creators_local(grouped: dict) -> None:
+    """Write {youtube: [...], instagram: [...]} to creators.json."""
+    import json as _json
+    root_dir = os.path.join(os.path.dirname(__file__), '..')
+    path = os.path.join(root_dir, 'creators.json')
+    with open(path, 'w', encoding='utf-8') as f:
+        _json.dump(grouped, f, ensure_ascii=False, indent=2)
+
+
+@app.route("/api/creators", methods=["GET"])
+def api_get_creators():
+    """Retrieve tracked creators from Notion (falls back to creators.json).
+
+    Response format:
+      {"youtube": [{"handle": "UC...", "page_id": "..."}, ...], "instagram": [...]}
+    """
     try:
-        with open(path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        return jsonify(data)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        from src.notion_push import fetch_creators_from_notion
+        from src.config import NOTION_CREATORS_DB_ID
+
+        if NOTION_CREATORS_DB_ID:
+            notion_list = fetch_creators_from_notion()
+            grouped: dict = {"youtube": [], "instagram": []}
+            for c in notion_list:
+                grouped.setdefault(c["platform"], []).append(
+                    {"handle": c["handle"], "page_id": c["page_id"]}
+                )
+            return jsonify(grouped)
+    except Exception as exc:
+        logger.warning("Notion creator fetch failed, falling back to local: %s", exc)
+
+    # Fallback: wrap local handles as objects without page_id
+    local = _creators_local_fallback()
+    return jsonify({
+        "youtube": [{"handle": h, "page_id": None} for h in local.get("youtube", [])],
+        "instagram": [{"handle": h, "page_id": None} for h in local.get("instagram", [])],
+    })
 
 
 @app.route("/api/creators/add", methods=["POST"])
 def api_add_creator():
-    """Add a tracked competitor creator (youtube or instagram) handle/ID."""
-    import json
-    data = request.get_json() or {}
-    platform = data.get("platform", "").strip().lower()  # 'youtube' or 'instagram'
-    handle = data.get("handle", "").strip()
-
-    if platform not in ["youtube", "instagram"] or not handle:
-        return jsonify({"error": "platform (youtube/instagram) and handle are required"}), 400
-
-    root_dir = os.path.join(os.path.dirname(__file__), '..')
-    path = os.path.join(root_dir, 'creators.json')
-    
-    try:
-        if os.path.exists(path):
-            with open(path, 'r', encoding='utf-8') as f:
-                creators = json.load(f)
-        else:
-            creators = {"youtube": [], "instagram": []}
-
-        if platform not in creators:
-            creators[platform] = []
-
-        if handle not in creators[platform]:
-            creators[platform].append(handle)
-
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(creators, f, ensure_ascii=False, indent=2)
-
-        logger.info("API: Added %s creator: '%s'", platform, handle)
-        return jsonify({"status": "success", "creators": creators})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/api/creators/delete", methods=["POST"])
-def api_delete_creator():
-    """Delete a tracked competitor creator handle/ID."""
-    import json
+    """Add a tracked creator to Notion and creators.json."""
     data = request.get_json() or {}
     platform = data.get("platform", "").strip().lower()
     handle = data.get("handle", "").strip()
 
     if platform not in ["youtube", "instagram"] or not handle:
-        return jsonify({"error": "platform and handle are required"}), 400
+        return jsonify({"error": "platform (youtube/instagram) and handle are required"}), 400
 
-    root_dir = os.path.join(os.path.dirname(__file__), '..')
-    path = os.path.join(root_dir, 'creators.json')
+    page_id = None
 
+    # Push to Notion if configured
     try:
-        if not os.path.exists(path):
-            return jsonify({"error": "No creators configured"}), 404
+        from src.notion_push import push_creator_to_notion, fetch_creators_from_notion
+        from src.config import NOTION_CREATORS_DB_ID
+        if NOTION_CREATORS_DB_ID:
+            page_id = push_creator_to_notion(handle, platform)
+    except Exception as exc:
+        logger.warning("Notion creator push failed: %s", exc)
 
-        with open(path, 'r', encoding='utf-8') as f:
-            creators = json.load(f)
+    # Always update creators.json
+    try:
+        local = _creators_local_fallback()
+        if platform not in local:
+            local[platform] = []
+        if handle not in local[platform]:
+            local[platform].append(handle)
+        _write_creators_local(local)
+    except Exception as exc:
+        logger.error("Failed to update creators.json: %s", exc)
 
-        if platform in creators and handle in creators[platform]:
-            creators[platform].remove(handle)
+    logger.info("API: Added %s creator: '%s' (page_id=%s)", platform, handle, page_id)
 
-            with open(path, 'w', encoding='utf-8') as f:
-                json.dump(creators, f, ensure_ascii=False, indent=2)
+    # Return fresh Notion list (or local fallback)
+    return api_get_creators()
 
-            logger.info("API: Deleted %s creator: '%s'", platform, handle)
-            return jsonify({"status": "success", "creators": creators})
-        
-        return jsonify({"error": "Creator not found"}), 404
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/creators/delete", methods=["POST"])
+def api_delete_creator():
+    """Delete a tracked creator from Notion and creators.json.
+
+    Body: {"page_id": "..."} — preferred (Notion deletion)
+          OR {"platform": "youtube", "handle": "UC..."} — local-only fallback
+    """
+    data = request.get_json() or {}
+    page_id = data.get("page_id", "").strip()
+    platform = data.get("platform", "").strip().lower()
+    handle = data.get("handle", "").strip()
+
+    if not page_id and not (platform and handle):
+        return jsonify({"error": "page_id or (platform + handle) required"}), 400
+
+    # Delete from Notion if we have a page_id
+    if page_id:
+        try:
+            from src.notion_push import delete_creator_from_notion
+            delete_creator_from_notion(page_id)
+        except Exception as exc:
+            logger.warning("Notion creator delete failed: %s", exc)
+
+    # Remove from creators.json — find handle by page_id if not provided
+    if not handle and page_id:
+        try:
+            from src.notion_push import fetch_creators_from_notion
+            for c in fetch_creators_from_notion():
+                if c["page_id"] == page_id:
+                    handle = c["handle"]
+                    platform = c["platform"]
+                    break
+        except Exception:
+            pass
+
+    if handle and platform:
+        try:
+            local = _creators_local_fallback()
+            if platform in local and handle in local[platform]:
+                local[platform].remove(handle)
+                _write_creators_local(local)
+        except Exception as exc:
+            logger.error("Failed to update creators.json: %s", exc)
+
+    logger.info("API: Deleted creator page_id=%s handle='%s'", page_id, handle)
+    return api_get_creators()
 
 
 # ── Server Boot ──────────────────────────────────────────────────────

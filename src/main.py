@@ -28,7 +28,14 @@ def run() -> int:
 
     all_items: list[dict] = []
 
-    # ── 1. YouTube ───────────────────────────────────────────────────
+    # ── 0. Sync creators from Notion ─────────────────────────────────
+    try:
+        from src.notion_push import sync_creators_from_notion_to_local
+        sync_creators_from_notion_to_local()
+    except Exception as exc:
+        logger.debug("Creator Notion sync skipped: %s", exc)
+
+    # ── 1. YouTube creator videos ────────────────────────────────────
     try:
         from src.fetch_youtube import fetch_all_youtube
 

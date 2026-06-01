@@ -914,28 +914,36 @@
     var igs = data.instagram || [];
 
     if(!yts.length) ytCreatorList.innerHTML = '<span class="footnote">No YouTube channels tracked.</span>';
-    yts.forEach(function(handle){
+    yts.forEach(function(creator){
+      // API now returns objects {handle, page_id}; support plain strings for offline
+      var handle = (typeof creator === "object") ? creator.handle : creator;
+      var pageId  = (typeof creator === "object") ? (creator.page_id || "") : "";
       var tag = document.createElement("div");
       tag.className = "creator-tag";
-      tag.innerHTML = esc(handle) + ' <span data-p="youtube" data-h="'+esc(handle)+'">×</span>';
+      tag.innerHTML = esc(handle) +
+        ' <span data-p="youtube" data-h="'+esc(handle)+'" data-pid="'+esc(pageId)+'">×</span>';
       ytCreatorList.appendChild(tag);
     });
 
     if(!igs.length) igCreatorList.innerHTML = '<span class="footnote">No Instagram profiles tracked.</span>';
-    igs.forEach(function(handle){
+    igs.forEach(function(creator){
+      var handle = (typeof creator === "object") ? creator.handle : creator;
+      var pageId  = (typeof creator === "object") ? (creator.page_id || "") : "";
       var tag = document.createElement("div");
       tag.className = "creator-tag";
-      tag.innerHTML = '@' + esc(handle) + ' <span data-p="instagram" data-h="'+esc(handle)+'">×</span>';
+      tag.innerHTML = '@'+esc(handle) +
+        ' <span data-p="instagram" data-h="'+esc(handle)+'" data-pid="'+esc(pageId)+'">×</span>';
       igCreatorList.appendChild(tag);
     });
 
-    // Bind delete triggers
+    // Bind delete triggers — use page_id (Notion) if available, else handle fallback
     var triggers = creatorsPanelContent.querySelectorAll(".creator-tag span");
     Array.prototype.forEach.call(triggers, function(el){
       el.addEventListener("click", function(){
-        var p = el.getAttribute("data-p");
-        var h = el.getAttribute("data-h");
-        deleteCreator(p, h);
+        var pid = el.getAttribute("data-pid") || "";
+        var p   = el.getAttribute("data-p");
+        var h   = el.getAttribute("data-h");
+        deleteCreator(pid, p, h);
       });
     });
   }
@@ -951,8 +959,8 @@
     .then(function(res){ return res.json(); })
     .then(function(data){
       if(data.error) throw new Error(data.error);
-      toast("Creator added ✓");
-      renderCreators(data.creators);
+      toast("Creator added to Notion ✓");
+      renderCreators(data);
     })
     .catch(function(err){
       console.error(err);
@@ -960,18 +968,21 @@
     });
   }
 
-  function deleteCreator(platform, handle){
+  function deleteCreator(pageId, platform, handle){
     toast("Removing creator...");
+    var body = pageId
+      ? { page_id: pageId }
+      : { platform: platform, handle: handle };
     fetch(API_BASE + "api/creators/delete", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ platform: platform, handle: handle })
+      body: JSON.stringify(body)
     })
     .then(function(res){ return res.json(); })
     .then(function(data){
       if(data.error) throw new Error(data.error);
       toast("Creator removed ✓");
-      renderCreators(data.creators);
+      renderCreators(data);
     })
     .catch(function(err){
       console.error(err);

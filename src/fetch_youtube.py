@@ -1,18 +1,18 @@
-"""Fetch trending gaming videos and creator uploads from YouTube Data API v3."""
+"""Fetch creator uploads from YouTube Data API v3.
 
+YouTube trending fetch is disabled — only tracked creator channels are monitored.
+To re-enable trending, call fetch_trending_videos() from fetch_all_youtube().
+"""
+
+import json
 import logging
+import os
 from datetime import datetime, timezone
 
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from src.config import (
-    YOUTUBE_API_KEY,
-    YOUTUBE_REGION_CODE,
-    YOUTUBE_CATEGORY_ID,
-    CREATOR_CHANNEL_IDS,
-    TREND_FETCH_LIMIT,
-)
+from src.config import YOUTUBE_API_KEY, TREND_FETCH_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -31,24 +31,45 @@ def _parse_video_item(item: dict, source: str) -> dict:
     return {
         "title": snippet.get("title", ""),
         "channel": snippet.get("channelTitle", ""),
+        "channel_id": snippet.get("channelId", ""),
         "views": int(stats.get("viewCount", 0)),
         "likes": int(stats.get("likeCount", 0)),
         "comments": int(stats.get("commentCount", 0)),
         "published_at": snippet.get("publishedAt", ""),
         "video_url": f"https://www.youtube.com/watch?v={item['id']}",
         "source": source,
-        "thumbnail_url": snippet.get("thumbnails", {})
-        .get("high", {})
-        .get("url", ""),
+        "thumbnail_url": snippet.get("thumbnails", {}).get("high", {}).get("url", ""),
     }
 
 
-def fetch_trending_videos() -> list[dict]:
-    """Fetch the top trending gaming videos for the configured region.
+def _load_creator_ids() -> list[str]:
+    """Load YouTube channel IDs fresh from creators.json at call time.
 
-    Returns:
-        A list of video dicts from the YouTube trending chart.
+    Always reads the file on each call so pipeline picks up Notion-synced changes
+    without needing a process restart.
     """
+    path = os.path.join(os.path.dirname(__file__), "..", "creators.json")
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                ids = [cid.strip() for cid in data.get("youtube", []) if cid.strip()]
+                if ids:
+                    return ids
+        except Exception as exc:
+            logger.warning("Could not read creators.json: %s", exc)
+
+    # Fall back to env var
+    raw = os.getenv("CREATOR_CHANNEL_IDS", "")
+    return [cid.strip() for cid in raw.split(",") if cid.strip()]
+
+
+def fetch_trending_videos() -> list[dict]:
+    """Fetch top trending gaming videos (disabled by default — kept for re-enabling).
+
+    To re-enable: call this from fetch_all_youtube().
+    """
+    from src.config import YOUTUBE_REGION_CODE, YOUTUBE_CATEGORY_ID
     try:
         yt = _build_service()
     except ValueError as exc:
@@ -56,44 +77,37 @@ def fetch_trending_videos() -> list[dict]:
         return []
 
     videos: list[dict] = []
-
     try:
-        request = yt.videos().list(
+        response = yt.videos().list(
             part="snippet,statistics",
             chart="mostPopular",
             regionCode=YOUTUBE_REGION_CODE,
             videoCategoryId=YOUTUBE_CATEGORY_ID,
             maxResults=min(TREND_FETCH_LIMIT, 50),
-        )
-        response = request.execute()
-
+        ).execute()
         for item in response.get("items", []):
             videos.append(_parse_video_item(item, source="youtube_trending"))
-
         logger.info("Fetched %d trending YouTube videos", len(videos))
-
     except HttpError as exc:
-        if exc.resp.status == 403:
-            logger.error("YouTube API quota exceeded: %s", exc)
-        else:
-            logger.error("YouTube API error (HTTP %s): %s", exc.resp.status, exc)
+        logger.error("YouTube trending API error (HTTP %s): %s", exc.resp.status, exc)
     except Exception as exc:
         logger.exception("Unexpected error fetching YouTube trending: %s", exc)
-
     return videos
 
 
 def fetch_creator_videos() -> list[dict]:
-    """Fetch recent uploads from tracked creator channels.
+    """Fetch recent uploads from all tracked creator channels.
 
-    Uses search.list to get latest videos from each channel ID in
-    CREATOR_CHANNEL_IDS, then enriches with statistics via videos.list.
+    Reads channel IDs fresh from creators.json on every call so that Notion-synced
+    additions are picked up without a restart.
 
     Returns:
-        A list of video dicts from creator channels.
+        A list of video dicts tagged with source='youtube_creator'.
     """
-    if not CREATOR_CHANNEL_IDS:
-        logger.debug("No creator channel IDs configured — skipping")
+    channel_ids = _load_creator_ids()
+
+    if not channel_ids:
+        logger.info("No creator channel IDs configured — skipping creator fetch")
         return []
 
     try:
@@ -103,59 +117,40 @@ def fetch_creator_videos() -> list[dict]:
         return []
 
     video_ids: list[str] = []
-
-    for channel_id in CREATOR_CHANNEL_IDS:
+    for channel_id in channel_ids:
         try:
-            search_req = yt.search().list(
+            resp = yt.search().list(
                 part="id",
                 channelId=channel_id,
                 order="date",
                 type="video",
                 maxResults=5,
-            )
-            search_resp = search_req.execute()
-            for item in search_resp.get("items", []):
+            ).execute()
+            for item in resp.get("items", []):
                 vid = item.get("id", {}).get("videoId")
                 if vid:
                     video_ids.append(vid)
-
         except HttpError as exc:
             logger.error(
                 "YouTube search failed for channel %s (HTTP %s): %s",
-                channel_id,
-                exc.resp.status,
-                exc,
+                channel_id, exc.resp.status, exc,
             )
         except Exception as exc:
-            logger.exception(
-                "Unexpected error searching channel %s: %s", channel_id, exc
-            )
+            logger.exception("Unexpected error searching channel %s: %s", channel_id, exc)
 
     if not video_ids:
         return []
 
-    # Batch fetch statistics for discovered videos
     videos: list[dict] = []
     try:
-        # Process in chunks of 50 (API limit)
         for i in range(0, len(video_ids), 50):
-            chunk = video_ids[i : i + 50]
-            detail_req = yt.videos().list(
-                part="snippet,statistics",
-                id=",".join(chunk),
-            )
-            detail_resp = detail_req.execute()
-            for item in detail_resp.get("items", []):
-                videos.append(
-                    _parse_video_item(item, source="youtube_creator")
-                )
-
-        logger.info("Fetched %d creator videos from %d channels",
-                     len(videos), len(CREATOR_CHANNEL_IDS))
-
+            chunk = video_ids[i: i + 50]
+            resp = yt.videos().list(part="snippet,statistics", id=",".join(chunk)).execute()
+            for item in resp.get("items", []):
+                videos.append(_parse_video_item(item, source="youtube_creator"))
+        logger.info("Fetched %d creator videos from %d channels", len(videos), len(channel_ids))
     except HttpError as exc:
-        logger.error("YouTube video details failed (HTTP %s): %s",
-                      exc.resp.status, exc)
+        logger.error("YouTube video details failed (HTTP %s): %s", exc.resp.status, exc)
     except Exception as exc:
         logger.exception("Unexpected error fetching video details: %s", exc)
 
@@ -163,14 +158,11 @@ def fetch_creator_videos() -> list[dict]:
 
 
 def fetch_all_youtube() -> list[dict]:
-    """Fetch trending + creator videos and return a combined list."""
-    trending = fetch_trending_videos()
+    """Fetch creator videos only (trending disabled).
+
+    Returns:
+        A list of video dicts from tracked creator channels.
+    """
     creators = fetch_creator_videos()
-    combined = trending + creators
-    logger.info(
-        "YouTube total: %d items (%d trending, %d creator)",
-        len(combined),
-        len(trending),
-        len(creators),
-    )
-    return combined
+    logger.info("YouTube total: %d creator videos", len(creators))
+    return creators

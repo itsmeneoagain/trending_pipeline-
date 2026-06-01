@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import requests
 
-from src.config import NOTION_API_KEY, NOTION_TRENDING_DB_ID, NOTION_PIPELINE_DB_ID
+from src.config import NOTION_API_KEY, NOTION_TRENDING_DB_ID, NOTION_PIPELINE_DB_ID, NOTION_CREATORS_DB_ID
 
 logger = logging.getLogger(__name__)
 
@@ -594,11 +594,133 @@ def update_pipeline_item_script(page_id: str, note: str, script: str) -> bool:
     resp = _notion_request("patch", f"/pages/{page_id}", json=payload)
     if resp is not None:
         logger.info("Successfully updated Notion card %s notes and script", page_id)
-        
+
         # Sync state down to local files
         sync_notion_to_local_files()
-        
+
         return True
 
     return False
+
+
+# ── Creators Notion Database ─────────────────────────────────────────
+
+def push_creator_to_notion(handle: str, platform: str) -> str | None:
+    """Add a creator to the Notion Creators database.
+
+    Args:
+        handle: Channel ID or handle string.
+        platform: 'youtube' or 'instagram'.
+
+    Returns:
+        The Notion page_id of the new page, or None on failure.
+    """
+    if not NOTION_API_KEY or not NOTION_CREATORS_DB_ID:
+        logger.debug("Creators DB not configured — skipping Notion push")
+        return None
+
+    payload = {
+        "parent": {"database_id": NOTION_CREATORS_DB_ID},
+        "properties": {
+            "Name": {
+                "title": [{"text": {"content": handle[:2000]}}]
+            },
+            "Platform": {
+                "select": {"name": platform.capitalize()}
+            },
+            "Active": {
+                "checkbox": True
+            },
+        },
+    }
+
+    resp = _notion_request("post", "/pages", json=payload)
+    if resp is not None:
+        page_id = resp.json().get("id", "")
+        logger.info("Creator pushed to Notion: '%s' (%s) — %s", handle, platform, page_id)
+        return page_id
+
+    logger.warning("Failed to push creator to Notion: '%s'", handle)
+    return None
+
+
+def fetch_creators_from_notion() -> list[dict]:
+    """Fetch all active creators from the Notion Creators database.
+
+    Returns:
+        List of dicts: [{"handle": str, "platform": str, "page_id": str}]
+    """
+    if not NOTION_API_KEY or not NOTION_CREATORS_DB_ID:
+        return []
+
+    payload = {
+        "filter": {"property": "Active", "checkbox": {"equals": True}},
+        "page_size": 100,
+    }
+
+    resp = _notion_request("post", f"/databases/{NOTION_CREATORS_DB_ID}/query", json=payload)
+    if resp is None:
+        return []
+
+    creators = []
+    for page in resp.json().get("results", []):
+        props = page.get("properties", {})
+
+        name_list = props.get("Name", {}).get("title", [])
+        handle = name_list[0].get("text", {}).get("content", "") if name_list else ""
+
+        platform_data = props.get("Platform", {}).get("select", {})
+        platform = (platform_data.get("name", "") or "").lower() if platform_data else ""
+
+        page_id = page.get("id", "")
+
+        if handle and platform in ("youtube", "instagram"):
+            creators.append({"handle": handle, "platform": platform, "page_id": page_id})
+
+    return creators
+
+
+def delete_creator_from_notion(page_id: str) -> bool:
+    """Archive a creator page in the Notion Creators database."""
+    if not NOTION_API_KEY:
+        return False
+
+    resp = _notion_request("patch", f"/pages/{page_id}", json={"archived": True})
+    if resp is not None:
+        logger.info("Creator archived from Notion: %s", page_id)
+        return True
+    return False
+
+
+def sync_creators_from_notion_to_local() -> bool:
+    """Pull active creators from Notion and overwrite creators.json.
+
+    Called at pipeline startup so fetch_creator_videos() always works with
+    the latest Notion roster without a process restart.
+
+    Returns:
+        True if Notion had creators and the file was updated.
+    """
+    import json as _json
+    import os as _os
+
+    creators = fetch_creators_from_notion()
+    if not creators:
+        logger.debug("No active creators in Notion — creators.json unchanged")
+        return False
+
+    grouped: dict[str, list[str]] = {"youtube": [], "instagram": []}
+    for c in creators:
+        grouped.setdefault(c["platform"], []).append(c["handle"])
+
+    root_dir = _os.path.join(_os.path.dirname(__file__), "..")
+    path = _os.path.join(root_dir, "creators.json")
+    with open(path, "w", encoding="utf-8") as f:
+        _json.dump(grouped, f, ensure_ascii=False, indent=2)
+
+    logger.info(
+        "Synced creators from Notion → creators.json: %d YouTube, %d Instagram",
+        len(grouped["youtube"]), len(grouped["instagram"]),
+    )
+    return True
 
